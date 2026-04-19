@@ -2,8 +2,6 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
@@ -11,14 +9,15 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Mock login — replace with real auth later
     setTimeout(() => {
       if (email === "admin@school.edu" && password === "admin123") {
         toast({
@@ -56,16 +55,28 @@ const Login = () => {
             ensure document authenticity with our secure platform.
           </p>
         </div>
-      </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-lg text-foreground">DocVerify</span>
+        <h2 className="text-3xl font-bold text-white text-center mb-8">
+          Admin Login
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Email */}
+          <div className="relative">
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="peer w-full h-12 bg-transparent border-b-2 border-white text-white text-base px-5 outline-none"
+            />
+            <label
+              htmlFor="email"
+              className="absolute left-5 top-1/2 -translate-y-1/2 text-white text-base transition-all duration-300 peer-focus:top-[-5px] peer-focus:text-sm peer-valid:top-[-5px] peer-valid:text-sm pointer-events-none"
+            >
+              Email
+            </label>
           </div>
 
           <h1 className="text-2xl font-bold text-foreground">Admin Login</h1>
@@ -73,16 +84,24 @@ const Login = () => {
             Enter your credentials to access the admin panel
           </p>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@school.edu"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+            {/* Password toggle */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-5 top-1/2 -translate-y-1/2 text-white hover:text-white/80"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+
+          {/* Remember Me + Forgot Password */}
+          <div className="flex justify-between items-center text-white text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="accent-white"
               />
             </div>
             <div className="space-y-2">
