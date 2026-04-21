@@ -1,12 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  History,
-  LogOut,
-  ShieldCheck,
-} from "lucide-react";
+import { LayoutDashboard, Users, FileText, History, LogOut, ShieldCheck } from "lucide-react";
 
 const navItems = [
   { to: "/admin", icon: LayoutDashboard, label: "Dashboard" },
