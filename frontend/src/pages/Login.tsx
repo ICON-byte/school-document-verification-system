@@ -42,7 +42,7 @@ const Login = () => {
         {/* Put your logo file in the public/ folder and name it logo.png */}
         <div className="flex justify-center mb-8">
           <img 
-            src="/public/logo-Neo-2.png" 
+            src="logo-Neo-2.png" 
             alt="Company Logo" 
             className="h-16 w-auto drop-shadow-md"
           />
