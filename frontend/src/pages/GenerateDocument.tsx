@@ -34,117 +34,150 @@ const GenerateDocument = () => {
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Generate Document</h1>
-        <p className="text-muted-foreground mt-1">Create verified academic documents with QR codes</p>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Form */}
-        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-card-foreground mb-6">Document Details</h2>
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <Label>Select Student</Label>
-              <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                <SelectTrigger><SelectValue placeholder="Choose a student" /></SelectTrigger>
-                <SelectContent>
-                  {mockStudents.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName} — {s.matricNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Document Type</Label>
-              <Select value={docType} onValueChange={setDocType}>
-                <SelectTrigger><SelectValue placeholder="Choose document type" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="transcript">Academic Transcript</SelectItem>
-                  <SelectItem value="statement_of_result">Statement of Result</SelectItem>
-                  <SelectItem value="letter">Letter of Good Standing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleGenerate} className="w-full gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-              <FileText className="w-4 h-4" /> Generate Document
-            </Button>
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8 flex justify-between items-end">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Document Generator</h1>
+            <p className="text-muted-foreground">Create tamper-proof academic records in seconds</p>
+          </div>
+          <div className="text-xs px-4 py-2 bg-accent/10 text-accent rounded-3xl font-medium flex items-center gap-1.5">
+            <div className="w-2 h-2 bg-accent rounded-full animate-pulse"></div>
+            LIVE SECURE MODE
           </div>
         </div>
 
-        {/* Preview */}
-        {generated && (
-          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-border flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-card-foreground">Document Preview</h2>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Download className="w-4 h-4" /> Download
+        <div className="grid lg:grid-cols-[1fr_2fr] gap-8">
+          {/* Form */}
+          <div className="bg-card rounded-3xl border border-border p-8 shadow-xl">
+            <h2 className="text-2xl font-semibold mb-8">Configure Document</h2>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label>Select Student</Label>
+                <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+                  <SelectTrigger className="rounded-2xl h-14">
+                    <SelectValue placeholder="Choose a student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockStudents.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName} — {s.matricNumber}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Document Type</Label>
+                <Select value={docType} onValueChange={setDocType}>
+                  <SelectTrigger className="rounded-2xl h-14">
+                    <SelectValue placeholder="Choose document type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="transcript">Academic Transcript</SelectItem>
+                    <SelectItem value="statement_of_result">Statement of Result</SelectItem>
+                    <SelectItem value="letter">Letter of Good Standing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleGenerate} className="w-full h-14 rounded-3xl text-lg gap-3 bg-gradient-to-r from-accent to-accent/90 hover:brightness-110 transition-all">
+                <FileText className="w-5 h-5" /> Generate Now
               </Button>
             </div>
-            <div className="p-6">
-              {/* Document content */}
-              <div className="border border-border rounded-lg p-8 bg-background">
-                <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-foreground">UNIVERSITY OF EXCELLENCE</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {docType === "transcript" ? "ACADEMIC TRANSCRIPT" :
-                     docType === "statement_of_result" ? "STATEMENT OF RESULT" : "LETTER OF GOOD STANDING"}
-                  </p>
-                </div>
+          </div>
 
-                <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-                  <div><span className="text-muted-foreground">Name:</span> <span className="font-medium text-foreground">{generated.student.firstName} {generated.student.lastName}</span></div>
-                  <div><span className="text-muted-foreground">Matric No:</span> <span className="font-medium text-foreground">{generated.student.matricNumber}</span></div>
-                  <div><span className="text-muted-foreground">Department:</span> <span className="font-medium text-foreground">{generated.student.department}</span></div>
-                  <div><span className="text-muted-foreground">Faculty:</span> <span className="font-medium text-foreground">{generated.student.faculty}</span></div>
-                </div>
-
-                {generated.records.length > 0 && (
-                  <table className="w-full text-sm mb-6">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 text-muted-foreground font-medium">Code</th>
-                        <th className="text-left py-2 text-muted-foreground font-medium">Course</th>
-                        <th className="text-center py-2 text-muted-foreground font-medium">Units</th>
-                        <th className="text-center py-2 text-muted-foreground font-medium">Grade</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {generated.records.map((r) => (
-                        <tr key={r.courseCode} className="border-b border-border/50">
-                          <td className="py-2 font-mono text-foreground">{r.courseCode}</td>
-                          <td className="py-2 text-foreground">{r.courseTitle}</td>
-                          <td className="py-2 text-center text-foreground">{r.creditUnits}</td>
-                          <td className="py-2 text-center font-semibold text-foreground">{r.grade}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {generated.records.length > 0 && (
-                  <p className="text-sm font-semibold text-foreground mb-6">
-                    Cumulative GPA: {calculateGPA(generated.records)} / 5.00
-                  </p>
-                )}
-
-                <div className="flex items-end justify-between pt-4 border-t border-border">
-                  <div className="text-xs text-muted-foreground">
-                    <p>Verification Code: <span className="font-mono font-semibold text-foreground">{generated.code}</span></p>
-                    <p className="mt-1">Generated: {new Date().toLocaleDateString()}</p>
+          {/* Preview */}
+          {generated && (
+            <div className="bg-card rounded-3xl border border-border shadow-2xl">
+              <div className="px-8 pt-6 pb-4 flex items-center justify-between border-b">
+                <h2 className="font-semibold text-2xl">Preview</h2>
+                <Button variant="outline" className="rounded-2xl gap-2">
+                  <Download className="w-4 h-4" /> Export
+                </Button>
+              </div>
+              <div className="p-8">
+                <div className="mx-auto max-w-xl bg-white dark:bg-background border border-border rounded-3xl shadow-inner p-9">
+                  <div className="flex justify-between items-start mb-8">
+                    <div>
+                      <h3 className="text-2xl font-bold">UNIVERSITY OF EXCELLENCE</h3>
+                      <p className="uppercase text-xs tracking-[2px] text-muted-foreground mt-px">
+                        {docType === "transcript" ? "ACADEMIC TRANSCRIPT" :
+                         docType === "statement_of_result" ? "STATEMENT OF RESULT" : "LETTER OF GOOD STANDING"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">VERIFIED</span>
+                    </div>
                   </div>
-                  <QRCodeSVG
-                    value={`${window.location.origin}/verify?code=${generated.code}`}
-                    size={80}
-                    level="M"
-                  />
+
+                  <div className="grid grid-cols-2 gap-6 text-sm mb-10">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">NAME</p>
+                      <p className="font-semibold">{generated.student.firstName} {generated.student.lastName}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">MATRIC NO</p>
+                      <p className="font-semibold font-mono">{generated.student.matricNumber}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">DEPARTMENT</p>
+                      <p className="font-semibold">{generated.student.department}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-xs">FACULTY</p>
+                      <p className="font-semibold">{generated.student.faculty}</p>
+                    </div>
+                  </div>
+
+                  {generated.records.length > 0 && (
+                    <>
+                      <table className="w-full mb-8 text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left pb-4 text-muted-foreground">CODE</th>
+                            <th className="text-left pb-4 text-muted-foreground">COURSE</th>
+                            <th className="text-center pb-4 text-muted-foreground">UNITS</th>
+                            <th className="text-center pb-4 text-muted-foreground">GRADE</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {generated.records.map((r) => (
+                            <tr key={r.courseCode}>
+                              <td className="py-4 font-mono text-foreground">{r.courseCode}</td>
+                              <td className="py-4 text-foreground">{r.courseTitle}</td>
+                              <td className="py-4 text-center text-foreground">{r.creditUnits}</td>
+                              <td className="py-4 text-center font-bold text-foreground">{r.grade}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      <div className="flex justify-end mb-8">
+                        <div className="text-right">
+                          <span className="text-xs text-muted-foreground block">CUMULATIVE GPA</span>
+                          <span className="text-4xl font-bold text-foreground">{calculateGPA(generated.records)}</span>
+                          <span className="text-sm text-muted-foreground"> / 5.00</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="pt-8 border-t flex items-end justify-between">
+                    <div className="text-xs">
+                      <span className="block text-muted-foreground">Verification Code</span>
+                      <span className="font-mono text-xl font-semibold">{generated.code}</span>
+                      <span className="block text-muted-foreground mt-3">Generated • {new Date().toLocaleDateString()}</span>
+                    </div>
+                    <QRCodeSVG
+                      value={`${window.location.origin}/verify?code=${generated.code}`}
+                      size={110}
+                      level="M"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

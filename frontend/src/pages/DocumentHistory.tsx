@@ -14,59 +14,62 @@ const DocumentHistory = () => {
   );
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Document History</h1>
-        <p className="text-muted-foreground mt-1">View all generated documents and their verification status</p>
+    <div className="p-8 max-w-screen-2xl mx-auto">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Document History</h1>
+          <p className="text-muted-foreground">Complete audit trail of all issued documents</p>
+        </div>
+        <div className="relative w-96">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search documents..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-12 rounded-2xl"
+          />
+        </div>
       </div>
 
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by student name, matric number, or verification code..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      <div className="bg-card rounded-3xl border border-border overflow-hidden shadow-sm">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border bg-muted/50">
+              <th className="text-left py-5 px-8 font-medium text-muted-foreground">Student</th>
+              <th className="text-left py-5 px-8 font-medium text-muted-foreground">Matric No.</th>
+              <th className="text-left py-5 px-8 font-medium text-muted-foreground">Document Type</th>
+              <th className="text-center py-5 px-8 font-medium text-muted-foreground">Status</th>
+              <th className="text-right py-5 px-8 font-medium text-muted-foreground">Verification Code</th>
+              <th className="text-right py-5 px-8 font-medium text-muted-foreground">Issued</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filtered.map((doc) => (
+              <tr key={doc.id} className="hover:bg-muted/30 transition-colors group">
+                <td className="py-5 px-8 font-medium">{doc.studentName}</td>
+                <td className="py-5 px-8 font-mono text-sm text-muted-foreground">{doc.matricNumber}</td>
+                <td className="py-5 px-8 capitalize">{doc.type.replace("_", " ")}</td>
+                <td className="py-5 px-8 text-center">
+                  <div className={`inline-flex items-center gap-2 px-4 py-1 rounded-3xl text-xs font-medium ${
+                    doc.status === "valid" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                  }`}>
+                    {doc.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    {doc.status}
+                  </div>
+                </td>
+                <td className="py-5 px-8 text-right font-mono font-semibold text-foreground">{doc.verificationCode}</td>
+                <td className="py-5 px-8 text-right text-sm text-muted-foreground">
+                  {new Date(doc.generatedAt).toLocaleDateString("en-GB")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      <div className="grid gap-4">
-        {filtered.map((doc) => (
-          <div key={doc.id} className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-shadow flex items-center gap-5">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-              doc.status === "valid" ? "bg-success/10" : "bg-destructive/10"
-            }`}>
-              {doc.status === "valid" ? (
-                <CheckCircle className="w-6 h-6 text-success" />
-              ) : (
-                <XCircle className="w-6 h-6 text-destructive" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-card-foreground">{doc.studentName}</p>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  doc.status === "valid" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
-                }`}>
-                  {doc.status}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {doc.matricNumber} · {doc.type.replace("_", " ")} · {new Date(doc.generatedAt).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-mono text-muted-foreground">{doc.verificationCode}</p>
-              <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                <FileText className="w-3 h-3" />
-                <span className="capitalize">{doc.type.replace("_", " ")}</span>
-              </div>
-            </div>
-          </div>
-        ))}
         {filtered.length === 0 && (
-          <div className="bg-card rounded-xl border border-border p-12 text-center text-muted-foreground">
-            No documents found matching your search.
+          <div className="py-20 text-center text-muted-foreground">
+            <FileText className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p className="text-lg">No documents found</p>
           </div>
         )}
       </div>
