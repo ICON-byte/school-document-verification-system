@@ -95,7 +95,7 @@ const GenerateDocument = () => {
                 </Button>
               </div>
               <div className="p-8">
-                <div className="mx-auto max-w-xl bg-white dark:bg-background border border-border rounded-3xl shadow-inner p-9">
+                <div className="mx-auto max-w-xl bg-white border border-border rounded-3xl shadow-inner p-9">
                   <div className="flex justify-between items-start mb-8">
                     <div>
                       <h3 className="text-2xl font-bold">UNIVERSITY OF EXCELLENCE</h3>
@@ -104,9 +104,12 @@ const GenerateDocument = () => {
                          docType === "statement_of_result" ? "STATEMENT OF RESULT" : "LETTER OF GOOD STANDING"}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">VERIFIED</span>
-                    </div>
+                    {/* SIMPLE LOGO */}
+                    <img 
+                      src="/logo-Neo-2.png"
+                      alt="University Logo"
+                      className="w-20 h-10 object-contain"
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-6 text-sm mb-10">
@@ -168,7 +171,7 @@ const GenerateDocument = () => {
                       <span className="block text-muted-foreground mt-3">Generated • {new Date().toLocaleDateString()}</span>
                     </div>
                     <QRCodeSVG
-                      value={`${window.location.origin}/verify?code=${generated.code}`}
+                      value={`http://localhost:3000/verify?code=${generated.code}`}
                       size={110}
                       level="M"
                     />
