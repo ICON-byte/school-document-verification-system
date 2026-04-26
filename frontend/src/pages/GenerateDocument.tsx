@@ -312,7 +312,8 @@ const GenerateDocument = () => {
 
                         <div className="text-center mb-2">
                           <p className="text-xl md:text-2xl font-serif font-bold text-slate-800 border-b border-[#6699FF]/20 inline-block pb-0.5 px-3 md:px-4">
-                            {generated.studentId?.fullName || "Student Name"}
+                            {/* Use the actual selected student's name */}
+                            {selectedStudentObj?.fullName || "Student Name"}
                           </p>
                         </div>
 
@@ -343,7 +344,8 @@ const GenerateDocument = () => {
                         <div className="flex justify-between items-end border-t border-slate-200 pt-3 mt-2">
                           <div className="text-left text-[8px] md:text-[10px] leading-tight">
                             <p>Issued: {issueDate}</p>
-                            <p>Admission: {generated.studentId?.admissionNo || "N/A"}</p>
+                            {/* Use the actual selected student's admission number */}
+                            <p>Admission: {selectedStudentObj?.admissionNo || "N/A"}</p>
                           </div>
                           <div className="text-right flex flex-col items-end">
                             <div className="bg-white p-1 rounded border border-slate-200">
