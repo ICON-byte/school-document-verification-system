@@ -1,17 +1,29 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ShieldCheck, FileSearch, QrCode, Lock, ArrowRight } from "lucide-react";
+import { 
+  ShieldCheck, FileSearch, QrCode, Lock, ArrowRight, 
+  Scan
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { QrScanner } from "@/components/QrScanner";
 
 const Landing = () => {
   const [verificationCode, setVerificationCode] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
   const navigate = useNavigate();
 
   const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
     if (verificationCode.trim()) {
       navigate(`/verify?code=${encodeURIComponent(verificationCode.trim())}`);
+    }
+  };
+
+  const handleQrScanSuccess = (decodedText: string) => {
+    const code = decodedText.trim();
+    if (code) {
+      navigate(`/verify?code=${encodeURIComponent(code)}`);
     }
   };
 
@@ -52,27 +64,43 @@ const Landing = () => {
           statements of results, and other school documents using QR code technology.
         </p>
 
-        {/* Verification Form */}
-        <form
-          onSubmit={handleVerify}
-          className="max-w-xl mx-auto bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-10 shadow-2xl"
-        >
+        {/* Verification Form - only manual code + scan QR button */}
+        <form onSubmit={handleVerify} className="max-w-xl mx-auto bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-10 shadow-2xl">
           <h2 className="text-2xl font-semibold mb-2">Verify a Document</h2>
           <p className="text-white/70 mb-8">
-            Enter the verification code found on the document or scan the QR code
+            Enter the verification code or scan the QR code on your document.
           </p>
-          <div className="flex gap-3">
-            <Input
-              placeholder="e.g. VRF-2024-A1B2C3"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              className="bg-white/90 text-slate-900 border-0 h-14 text-lg placeholder:text-slate-500"
-            />
-            <Button 
-              type="submit" 
-              className="bg-white text-[#4c1d95] hover:bg-white/90 h-14 px-10 font-semibold text-lg"
+          
+          <div className="flex flex-col gap-5">
+            {/* Manual code input with label */}
+            <div>
+              <label htmlFor="verification-code" className="block text-sm font-medium text-white/80 mb-2 text-left">
+                Verification Code
+              </label>
+              <div className="flex gap-3">
+                <Input
+                  id="verification-code"
+                  placeholder="e.g. VRF-2024-A1B2C3"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  className="bg-white/90 text-slate-900 border-0 h-14 text-lg placeholder:text-slate-500 flex-1"
+                />
+                <Button 
+                  type="submit" 
+                  className="bg-white text-[#4c1d95] hover:bg-white/90 h-14 px-10 font-semibold text-lg"
+                >
+                  Verify <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Prominent Scan QR Code Button */}
+            <Button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="bg-white text-[#4c1d95] hover:bg-white/90 h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 w-full max-w-md mx-auto"
             >
-              Verify <ArrowRight className="ml-2 w-5 h-5" />
+              <Scan className="w-5 h-5 mr-3" /> Scan QR Code
             </Button>
           </div>
         </form>
@@ -116,6 +144,14 @@ const Landing = () => {
       <footer className="relative z-10 border-t border-white/10 py-8 text-center text-white/60 text-sm">
         © {new Date().getFullYear()} DocVerify — School Document Verification System
       </footer>
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <QrScanner
+          onScanSuccess={handleQrScanSuccess}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 };

@@ -22,7 +22,7 @@ const Login = () => {
       } else {
         toast({
           title: "Login failed",
-          description: "Try admin@school.edu / admin123",
+          description: "Invalid email or password. Please try again.",
           variant: "destructive",
         });
       }
@@ -31,7 +31,6 @@ const Login = () => {
   };
 
   return (
-    // font-sans ensures a clean sans-serif typeface across the page
     <div className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-slate-50 font-sans">
       
       {/* BACKGROUND ANIMATION ELEMENTS */}
@@ -42,16 +41,13 @@ const Login = () => {
         
         {/* LEFT SIDE - BRANDING & VISUAL */}
         <div className="hidden md:flex md:w-[45%] bg-[#4a6cf7] relative p-12 flex-col justify-between items-start text-white overflow-hidden">
-          {/* Decorative Pattern Overlay */}
           <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(circle_at_center,_#fff_1px,_transparent_1px)] bg-[length:24px_24px]" />
           
           <div className="relative z-10 flex items-center group cursor-default">
-            {/* Straight font, non-italic as requested */}
             <span className="font-bold text-2xl tracking-tight uppercase">Admin Portal</span>
           </div>
 
           <div className="relative z-10 w-full">
-            {/* LOGO */}
             <div className="mb-12">
               <img
                 src="/logo-Neo.png"
@@ -121,15 +117,14 @@ const Login = () => {
 
               <div className="flex items-center justify-between pt-1">
                 <label className="flex items-center gap-2 cursor-pointer group">
-                  <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20" />
+                  {/* Changed accent color to match NeoCloud's primary color (#4a6cf7) */}
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-slate-300 text-[#4a6cf7] focus:ring-[#4a6cf7]/20 focus:ring-offset-0 accent-[#4a6cf7]" 
+                  />
                   <span className="text-sm text-slate-500 group-hover:text-slate-700 transition-colors">Remember me</span>
                 </label>
-                <button
-                  type="button"
-                  className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
-                >
-                  Forgot Password?
-                </button>
+                {/* Removed Forgot Password button */}
               </div>
 
               <button
