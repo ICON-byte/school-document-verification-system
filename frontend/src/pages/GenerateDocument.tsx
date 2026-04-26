@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { FileText, Download, Search, ChevronDown, Award, GraduationCap, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,15 +10,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockStudents, mockRecords, generateVerificationCode, getGradePoint, AcademicRecord } from "@/lib/mockData";
+import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
-// Extended student type
-type ExtendedStudent = typeof mockStudents[0] & {
-  program?: string;
-  yearOfEntry?: string;
-  graduationYear?: string;
-};
+interface Student {
+  _id: string;
+  admissionNo: string;
+  fullName: string;
+  className: string;
+  dateOfBirth?: string;
+  parentContact?: string;
+  isActive: boolean;
+}
+
+interface Document {
+  _id: string;
+  studentId: Student;
+  documentType: string;
+  issueDate: string;
+  verificationCode: string;
+  content: any;
+  status: string;
+}
 
 const documentTypes = [
   { value: "degree", label: "Bachelor's Degree Certificate", icon: GraduationCap },
@@ -28,47 +43,127 @@ const documentTypes = [
 ];
 
 const GenerateDocument = () => {
+  const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState("");
   const [docType, setDocType] = useState("");
-  const [generated, setGenerated] = useState<{
-    code: string;
-    student: ExtendedStudent;
-    records: AcademicRecord[];
-  } | null>(null);
+  const [generated, setGenerated] = useState<Document | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { toast } = useToast();
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  const filteredStudents = mockStudents.filter((s) =>
-    `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
+  // Prevent overscroll beyond top or bottom
+  useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.documentElement).overscrollBehavior;
+    document.documentElement.style.overscrollBehavior = "none";
+    document.body.style.overscrollBehavior = "none";
+    return () => {
+      document.documentElement.style.overscrollBehavior = originalStyle;
+      document.body.style.overscrollBehavior = originalStyle;
+    };
+  }, []);
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast({ title: "Not authenticated", variant: "destructive" });
+        return;
+      }
+      const res = await fetch(`${API_BASE}/students`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStudents(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch students:", error);
+    }
+  };
+
+  const filteredStudents = students.filter((s) =>
+    s.fullName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSelectStudent = (studentId: string) => {
     setSelectedStudent(studentId);
     setSearchQuery("");
     setIsDropdownOpen(false);
-    const student = mockStudents.find((s) => s.id === studentId);
-    if (student) {
-      setSearchQuery(`${student.firstName} ${student.lastName}`);
-    }
+    const student = students.find((s) => s._id === studentId);
+    if (student) setSearchQuery(student.fullName);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!selectedStudent || !docType) {
-      toast({ title: "Missing fields", variant: "destructive" });
+      toast({ title: "Missing fields", description: "Please select both student and document type", variant: "destructive" });
       return;
     }
-    const student = mockStudents.find((s) => s.id === selectedStudent)!;
-    const records = mockRecords[student.id] || [];
-    const code = generateVerificationCode();
-    setGenerated({ code, student, records });
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not authenticated");
+      const res = await fetch(`${API_BASE}/documents/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          studentId: selectedStudent,
+          documentType: docType,
+          content: { program: "Computer Science", records: [] },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to generate document");
+      const data = await res.json();
+      setGenerated(data.document);
+      toast({ title: "Success", description: "Document generated successfully!" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const selectedStudentObj = mockStudents.find((s) => s.id === selectedStudent);
-  const currentDocType = documentTypes.find(d => d.value === docType);
+  const exportToPDF = async () => {
+    const certificateElement = document.getElementById("certificate-preview");
+    if (!certificateElement) return;
+    setExporting(true);
+    try {
+      const canvas = await html2canvas(certificateElement, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        logging: false,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+      const imgWidth = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      pdf.save(`certificate_${generated?.documentType}_${new Date().toISOString().split("T")[0]}.pdf`);
+      toast({ title: "Success", description: "PDF downloaded successfully!" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to generate PDF", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
 
-  // Get document title
+  const selectedStudentObj = students.find((s) => s._id === selectedStudent);
+
   const getDocumentTitle = () => {
     switch(docType) {
       case "degree": return "BACHELOR'S DEGREE CERTIFICATE";
@@ -79,23 +174,21 @@ const GenerateDocument = () => {
     }
   };
 
-  // Format date for certificate
   const issueDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-slate-100 p-4 pb-20 md:p-8 md:pb-20 font-sans">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Document Generator</h1>
-          <p className="text-slate-500 mt-1">Create official certificates and academic records</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Document Generator</h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">Create official certificates and academic records</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 md:gap-8">
           {/* Configuration Panel */}
-          <div className="bg-white rounded-xl shadow-lg p-6 order-2 lg:order-1">
+          <Card className="bg-white border-0 rounded-xl shadow-lg p-6 order-2 lg:order-1">
             <h2 className="text-xl font-semibold text-slate-800 mb-6">Configure Document</h2>
             <div className="space-y-6">
-              {/* Searchable Student Dropdown */}
               <div className="space-y-2">
                 <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold">Select Student</Label>
                 <div className="relative">
@@ -104,7 +197,7 @@ const GenerateDocument = () => {
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   >
                     <span className={selectedStudent ? "text-slate-700" : "text-slate-400"}>
-                      {selectedStudentObj ? `${selectedStudentObj.firstName} ${selectedStudentObj.lastName}` : "Choose a student"}
+                      {selectedStudentObj ? selectedStudentObj.fullName : "Choose a student"}
                     </span>
                     <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
                   </div>
@@ -129,11 +222,11 @@ const GenerateDocument = () => {
                         ) : (
                           filteredStudents.map((student) => (
                             <div
-                              key={student.id}
+                              key={student._id}
                               className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm"
-                              onClick={() => handleSelectStudent(student.id)}
+                              onClick={() => handleSelectStudent(student._id)}
                             >
-                              {student.firstName} {student.lastName}
+                              {student.fullName} ({student.admissionNo})
                             </div>
                           ))
                         )}
@@ -143,7 +236,6 @@ const GenerateDocument = () => {
                 </div>
               </div>
 
-              {/* Document Type Select */}
               <div className="space-y-2">
                 <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold">Document Type</Label>
                 <Select value={docType} onValueChange={setDocType}>
@@ -165,75 +257,71 @@ const GenerateDocument = () => {
 
               <Button 
                 onClick={handleGenerate} 
+                disabled={loading}
                 className="w-full h-12 rounded-lg bg-[#6699FF] hover:bg-[#5588ee] text-white font-bold shadow-md active:scale-[0.98]"
               >
-                Generate Document
+                {loading ? "Generating..." : "Generate Document"}
               </Button>
             </div>
-          </div>
+          </Card>
 
-          {/* Certificate Preview - Landscape style */}
+          {/* Certificate Preview */}
           <div className="order-1 lg:order-2">
             {generated ? (
-              <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white">
-                  <h2 className="text-lg font-semibold text-slate-800">Certificate Preview</h2>
-                  <Button variant="outline" className="rounded-lg border-slate-200 shadow-sm hover:bg-slate-50">
-                    <Download className="w-4 h-4 mr-2" /> Export PDF
+              <Card className="bg-white border-0 rounded-xl shadow-xl overflow-hidden">
+                <div className="px-4 py-3 md:px-6 md:py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-white">
+                  <h2 className="text-base md:text-lg font-semibold text-slate-800">Certificate Preview</h2>
+                  <Button 
+                    variant="outline" 
+                    onClick={exportToPDF}
+                    disabled={exporting}
+                    size="sm"
+                    className="rounded-lg border-slate-200 shadow-sm hover:bg-slate-50"
+                  >
+                    <Download className="w-4 h-4 mr-2" /> 
+                    {exporting ? "Exporting..." : "Export PDF"}
                   </Button>
                 </div>
 
-                <div className="p-6 bg-slate-100 overflow-x-auto">
-                  {/* Landscape certificate container - wider aspect */}
-                  <div className="mx-auto w-full max-w-4xl bg-white shadow-2xl rounded-xl overflow-hidden">
+                <div className="p-3 md:p-4 bg-slate-100 overflow-x-auto">
+                  <div id="certificate-preview" className="mx-auto w-full max-w-4xl bg-white shadow-xl rounded-lg overflow-hidden">
                     <div className="relative">
-                      {/* Ornate border */}
-                      <div className="absolute inset-0 pointer-events-none border-2 border-[#6699FF]/20 rounded-xl" />
-                      <div className="absolute inset-1 pointer-events-none border border-[#6699FF]/10 rounded-lg" />
-                      
-                      {/* Decorative corner elements */}
-                      <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-[#6699FF]/30 rounded-tl-xl" />
-                      <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-[#6699FF]/30 rounded-tr-xl" />
-                      <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-[#6699FF]/30 rounded-bl-xl" />
-                      <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-[#6699FF]/30 rounded-br-xl" />
+                      <div className="absolute inset-0 pointer-events-none border border-[#6699FF]/20 rounded-lg" />
+                      <div className="absolute top-0 left-0 w-6 h-6 md:w-8 md:h-8 border-t-2 border-l-2 border-[#6699FF]/30 rounded-tl-md" />
+                      <div className="absolute top-0 right-0 w-6 h-6 md:w-8 md:h-8 border-t-2 border-r-2 border-[#6699FF]/30 rounded-tr-md" />
+                      <div className="absolute bottom-0 left-0 w-6 h-6 md:w-8 md:h-8 border-b-2 border-l-2 border-[#6699FF]/30 rounded-bl-md" />
+                      <div className="absolute bottom-0 right-0 w-6 h-6 md:w-8 md:h-8 border-b-2 border-r-2 border-[#6699FF]/30 rounded-br-md" />
 
-                      <div className="p-10 md:p-12 relative z-10">
-                        {/* Header with logo and institution */}
-                        <div className="flex justify-between items-start mb-6 border-b border-slate-200 pb-4">
+                      <div className="p-3 md:p-5 relative z-10">
+                        <div className="flex justify-between items-center mb-2 border-b border-slate-200 pb-2">
                           <div>
-                            <h1 className="text-4xl font-bold text-slate-800 tracking-tight">NEO CLOUD</h1>
-                            <p className="text-sm text-slate-500 uppercase tracking-wider">Academic & Records Office</p>
+                            <h1 className="text-xl md:text-2xl font-bold text-slate-800">NEO CLOUD</h1>
+                            <p className="text-[8px] md:text-[10px] text-slate-500 uppercase">Academic & Records Office</p>
                           </div>
-                          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center border-2 border-[#6699FF]/20 shadow-md">
-                            <img src="/logo-Neo-2.png" alt="NeoCloud Logo" className="w-14 h-14 object-contain" />
+                          <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-50 rounded-full flex items-center justify-center border border-[#6699FF]/20">
+                            <img src="/logo-Neo-2.png" alt="Logo" className="w-6 h-6 md:w-7 md:h-7 object-contain" />
                           </div>
                         </div>
 
-                        {/* Document Title with seal effect */}
-                        <div className="text-center mb-8">
-                          <div className="inline-block relative">
-                            <h2 className="text-3xl font-bold text-slate-800 uppercase tracking-wider">
-                              {getDocumentTitle()}
-                            </h2>
-                            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-[#6699FF]/40 rounded-full" />
-                          </div>
-                          <p className="text-sm text-slate-500 mt-4">This certifies that</p>
+                        <div className="text-center mb-2">
+                          <h2 className="text-base md:text-xl font-bold text-slate-800 uppercase tracking-wide">
+                            {getDocumentTitle()}
+                          </h2>
+                          <p className="text-[8px] md:text-[10px] text-slate-500 mt-1">This certifies that</p>
                         </div>
 
-                        {/* Student Name prominently displayed */}
-                        <div className="text-center mb-6">
-                          <p className="text-4xl font-serif font-bold text-slate-800 border-b-2 border-[#6699FF]/20 inline-block pb-2 px-8">
-                            {generated.student.firstName} {generated.student.lastName}
+                        <div className="text-center mb-2">
+                          <p className="text-xl md:text-2xl font-serif font-bold text-slate-800 border-b border-[#6699FF]/20 inline-block pb-0.5 px-3 md:px-4">
+                            {generated.studentId?.fullName || "Student Name"}
                           </p>
                         </div>
 
-                        {/* Certificate body text (depends on document type) */}
-                        <div className="text-center text-slate-600 space-y-2 mb-8">
+                        <div className="text-center text-slate-600 space-y-0.5 mb-3 text-[10px] md:text-xs">
                           {docType === "degree" && (
                             <>
                               <p>has successfully completed all requirements for the degree of</p>
-                              <p className="text-2xl font-serif font-semibold text-[#6699FF]">
-                                Bachelor of Science in {generated.student.program || "Computer Science"}
+                              <p className="text-sm md:text-base font-serif font-semibold text-[#6699FF]">
+                                Bachelor of Science in Computer Science
                               </p>
                               <p>with all rights, privileges, and honors thereunto appertaining.</p>
                             </>
@@ -241,98 +329,64 @@ const GenerateDocument = () => {
                           {docType === "diploma" && (
                             <>
                               <p>has successfully completed the program of study and is hereby awarded the</p>
-                              <p className="text-2xl font-serif font-semibold text-[#6699FF]">
-                                Diploma in {generated.student.program || "Information Technology"}
+                              <p className="text-sm md:text-base font-serif font-semibold text-[#6699FF]">
+                                Diploma in Information Technology
                               </p>
                               <p>in recognition of academic achievement.</p>
                             </>
                           )}
                           {(docType === "transcript" || docType === "statement") && (
-                            <p className="text-lg font-medium">Academic Record</p>
+                            <p className="text-xs md:text-sm font-medium">Academic Record</p>
                           )}
                         </div>
 
-                        {/* Academic Record Table (for transcript/statement - shown in a refined way) */}
-                        {(docType === "transcript" || docType === "statement") && generated.records.length > 0 && (
-                          <div className="mb-8">
-                            <h3 className="text-lg font-semibold text-slate-800 mb-4 text-center">Course Performance</h3>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm border-collapse">
-                                <thead>
-                                  <tr className="bg-slate-50 border-b-2 border-slate-200">
-                                    <th className="text-left py-2 px-3 font-semibold text-slate-600">Course Code</th>
-                                    <th className="text-left py-2 px-3 font-semibold text-slate-600">Course Title</th>
-                                    <th className="text-center py-2 px-3 font-semibold text-slate-600">Credits</th>
-                                    <th className="text-center py-2 px-3 font-semibold text-slate-600">Grade</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {generated.records.map((record, idx) => (
-                                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50">
-                                      <td className="py-2 px-3 font-mono text-xs">{record.courseCode}</td>
-                                      <td className="py-2 px-3">{record.courseTitle}</td>
-                                      <td className="text-center py-2 px-3">{record.creditUnits}</td>
-                                      <td className="text-center py-2 px-3 font-semibold">{record.grade}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
+                        <div className="flex justify-between items-end border-t border-slate-200 pt-3 mt-2">
+                          <div className="text-left text-[8px] md:text-[10px] leading-tight">
+                            <p>Issued: {issueDate}</p>
+                            <p>Admission: {generated.studentId?.admissionNo || "N/A"}</p>
                           </div>
-                        )}
-
-                        {/* QR Code and Verification Section */}
-                        <div className="flex justify-between items-end border-t-2 border-slate-200 pt-6 mt-4">
-                          <div className="text-left">
-                            <p className="text-sm text-slate-500">Issued on: {issueDate}</p>
-                            <p className="text-sm text-slate-500">Registration Number: {generated.student.id}</p>
-                          </div>
-                          <div className="text-right flex flex-col items-end gap-2">
-                            <div className="bg-white p-2 rounded-md border border-slate-200 shadow-sm">
-                              <QRCodeSVG value={generated.code} size={70} />
+                          <div className="text-right flex flex-col items-end">
+                            <div className="bg-white p-1 rounded border border-slate-200">
+                              <QRCodeSVG value={generated.verificationCode} size={40} />
                             </div>
-                            <div>
-                              <p className="text-[10px] uppercase text-slate-400 font-bold">Verification Code</p>
-                              <p className="text-xs font-mono font-bold text-[#6699FF] tracking-wider">{generated.code}</p>
-                            </div>
+                            <p className="text-[7px] md:text-[8px] uppercase text-slate-400 font-bold mt-1">Verification Code</p>
+                            <p className="text-[8px] md:text-[9px] font-mono font-bold text-[#6699FF]">{generated.verificationCode}</p>
                           </div>
                         </div>
 
-                        {/* Signatures and Seals */}
-                        <div className="mt-8 pt-4 flex justify-between items-end">
+                        <div className="mt-3 pt-2 flex justify-between items-end text-[7px] md:text-[9px]">
                           <div className="text-center w-1/3">
-                            <div className="w-full h-px bg-slate-300 mb-1" />
-                            <p className="text-xs text-slate-500">Registrar's Signature</p>
+                            <div className="w-full h-px bg-slate-300 mb-0.5" />
+                            <p>Registrar's Signature</p>
                           </div>
                           <div className="text-center w-1/3">
-                            <div className="w-full h-px bg-slate-300 mb-1" />
-                            <p className="text-xs text-slate-500">Academic Dean</p>
+                            <div className="w-full h-px bg-slate-300 mb-0.5" />
+                            <p>Academic Dean</p>
                           </div>
                           <div className="text-center w-1/3">
-                            <div className="flex justify-center mb-1">
-                              <div className="w-12 h-12 rounded-full border-2 border-[#6699FF]/40 flex items-center justify-center">
-                                <Award className="w-6 h-6 text-[#6699FF]/60" />
+                            <div className="flex justify-center mb-0.5">
+                              <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border border-[#6699FF]/40 flex items-center justify-center">
+                                <Award className="w-3 h-3 md:w-4 md:h-4 text-[#6699FF]/60" />
                               </div>
                             </div>
-                            <p className="text-xs text-slate-500">University Seal</p>
+                            <p>University Seal</p>
                           </div>
                         </div>
 
-                        {/* Footer note */}
-                        <div className="text-center mt-6 text-[10px] text-slate-400 uppercase tracking-wider">
-                          This document is electronically verified. Always check the QR code.
+                        <div className="text-center mt-2 text-[6px] md:text-[8px] text-slate-400 uppercase">
+                          Electronically verified – check QR code
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             ) : (
-              <div className="h-[500px] bg-white rounded-xl shadow-md flex flex-col items-center justify-center text-center p-12">
-                <FileText className="w-16 h-16 text-slate-200 mb-4" />
-                <h3 className="text-xl font-semibold text-slate-800">No Preview Available</h3>
-                <p className="text-slate-400 max-w-sm mt-2">Select a student and document type to generate an official certificate or academic record.</p>
-              </div>
+              <Card className="h-[400px] md:h-[500px] bg-white rounded-xl shadow-md flex flex-col items-center justify-center text-center p-8 md:p-12">
+                <FileText className="w-12 h-12 md:w-16 md:h-16 text-slate-200 mb-4" />
+                <h3 className="text-lg md:text-xl font-semibold text-slate-800">No Preview Available</h3>
+                <p className="text-slate-400 max-w-sm mt-2 text-sm md:text-base">Select a student and document type to generate an official certificate or academic record.</p>
+              </Card>
             )}
           </div>
         </div>
