@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Trash2, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import QRCode from "qrcode";
 
 interface Document {
   _id: string;
@@ -25,17 +28,17 @@ const DocumentHistory = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
-  
-  // Pagination state
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  
+
   const { toast } = useToast();
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  // Prevent overscroll beyond top or bottom
+  // Prevent overscroll at top/bottom of page (no bounce effect)
   useEffect(() => {
     const originalStyle = window.getComputedStyle(document.documentElement).overscrollBehavior;
     document.documentElement.style.overscrollBehavior = "none";
@@ -93,11 +96,151 @@ const DocumentHistory = () => {
       if (!res.ok) throw new Error("Failed to revoke document");
 
       toast({ title: "Revoked", description: "Document has been revoked successfully." });
-      await fetchDocuments(); // refresh current page
+      await fetchDocuments();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setRevokingId(null);
+    }
+  };
+
+  const exportToPDF = async (doc: Document) => {
+    setDownloadingId(doc._id);
+    let container: HTMLDivElement | null = null;
+    try {
+      const qrDataUrl = await QRCode.toDataURL(doc.verificationCode, {
+        width: 100,
+        margin: 1,
+        color: { dark: "#000000", light: "#ffffff" },
+      });
+
+      container = document.createElement("div");
+      container.style.position = "absolute";
+      container.style.top = "-9999px";
+      container.style.left = "-9999px";
+      container.style.backgroundColor = "#ffffff";
+      container.style.width = "800px";
+      container.style.padding = "20px";
+      document.body.appendChild(container);
+
+      const getDocumentTitle = () => {
+        switch (doc.documentType) {
+          case "degree": return "BACHELOR'S DEGREE CERTIFICATE";
+          case "diploma": return "DIPLOMA CERTIFICATE";
+          case "transcript": return "ACADEMIC TRANSCRIPT";
+          case "statement": return "STATEMENT OF RESULT";
+          default: return "OFFICIAL DOCUMENT";
+        }
+      };
+
+      const issueDateFormatted = new Date(doc.issueDate).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      });
+
+      container.innerHTML = `
+        <div style="font-family: sans-serif; max-width: 100%; position: relative;">
+          <div style="position: absolute; inset: 0; pointer-events: none; border: 1px solid rgba(102,153,255,0.2); border-radius: 8px;"></div>
+          <div style="position: absolute; top: 0; left: 0; width: 32px; height: 32px; border-top: 2px solid rgba(102,153,255,0.3); border-left: 2px solid rgba(102,153,255,0.3); border-top-left-radius: 6px;"></div>
+          <div style="position: absolute; top: 0; right: 0; width: 32px; height: 32px; border-top: 2px solid rgba(102,153,255,0.3); border-right: 2px solid rgba(102,153,255,0.3); border-top-right-radius: 6px;"></div>
+          <div style="position: absolute; bottom: 0; left: 0; width: 32px; height: 32px; border-bottom: 2px solid rgba(102,153,255,0.3); border-left: 2px solid rgba(102,153,255,0.3); border-bottom-left-radius: 6px;"></div>
+          <div style="position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; border-bottom: 2px solid rgba(102,153,255,0.3); border-right: 2px solid rgba(102,153,255,0.3); border-bottom-right-radius: 6px;"></div>
+
+          <div style="padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+              <div>
+                <h1 style="font-size: 24px; font-weight: bold; color: #1e293b;">NEO CLOUD</h1>
+                <p style="font-size: 10px; color: #64748b; text-transform: uppercase;">Academic & Records Office</p>
+              </div>
+              <div style="width: 40px; height: 40px; background: #f8fafc; border-radius: 9999px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(102,153,255,0.2);">
+                <img src="/logo-Neo-2.png" alt="Logo" style="width: 28px; height: 28px; object-fit: contain;" />
+              </div>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 16px;">
+              <h2 style="font-size: 20px; font-weight: bold; color: #1e293b; text-transform: uppercase; letter-spacing: 1px;">${getDocumentTitle()}</h2>
+              <p style="font-size: 10px; color: #64748b; margin-top: 4px;">This certifies that</p>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 16px;">
+              <p style="font-size: 28px; font-family: serif; font-weight: bold; color: #1e293b; border-bottom: 1px solid rgba(102,153,255,0.2); display: inline-block; padding-bottom: 2px; padding-left: 16px; padding-right: 16px;">
+                ${doc.studentId?.fullName || "Student Name"}
+              </p>
+            </div>
+
+            <div style="text-align: center; color: #475569; font-size: 12px; margin-bottom: 24px;">
+              ${doc.documentType === "degree" ? `
+                <p>has successfully completed all requirements for the degree of</p>
+                <p style="font-size: 16px; font-family: serif; font-weight: 600; color: #6699FF;">Bachelor of Science in Computer Science</p>
+                <p>with all rights, privileges, and honors thereunto appertaining.</p>
+              ` : doc.documentType === "diploma" ? `
+                <p>has successfully completed the program of study and is hereby awarded the</p>
+                <p style="font-size: 16px; font-family: serif; font-weight: 600; color: #6699FF;">Diploma in Information Technology</p>
+                <p>in recognition of academic achievement.</p>
+              ` : `
+                <p style="font-size: 14px; font-weight: 500;">Academic Record</p>
+              `}
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 16px;">
+              <div style="font-size: 10px; line-height: 1.3;">
+                <p>Issued: ${issueDateFormatted}</p>
+                <p>Admission: ${doc.studentId?.admissionNo || "N/A"}</p>
+              </div>
+              <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
+                <img src="${qrDataUrl}" style="width: 50px; height: 50px; border: 1px solid #e2e8f0; border-radius: 4px;" />
+                <p style="font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-top: 4px;">Verification Code</p>
+                <p style="font-size: 9px; font-family: monospace; font-weight: bold; color: #6699FF;">${doc.verificationCode}</p>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px; padding-top: 8px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px;">
+              <div style="text-align: center; width: 33%;">
+                <div style="width: 100%; height: 1px; background: #cbd5e1; margin-bottom: 4px;"></div>
+                <p>Registrar's Signature</p>
+              </div>
+              <div style="text-align: center; width: 33%;">
+                <div style="width: 100%; height: 1px; background: #cbd5e1; margin-bottom: 4px;"></div>
+                <p>Academic Dean</p>
+              </div>
+              <div style="text-align: center; width: 33%;">
+                <div style="display: flex; justify-content: center; margin-bottom: 4px;">
+                  <div style="width: 28px; height: 28px; border-radius: 9999px; border: 1px solid rgba(102,153,255,0.4); display: flex; align-items: center; justify-content: center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"/></svg>
+                  </div>
+                </div>
+                <p>University Seal</p>
+              </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 12px; font-size: 8px; color: #94a3b8; text-transform: uppercase;">
+              Electronically verified – check QR code
+            </div>
+          </div>
+        </div>
+      `;
+
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        logging: false,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const imgWidth = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      pdf.save(`certificate_${doc.documentType}_${doc.verificationCode}.pdf`);
+
+      toast({ title: "Success", description: "Certificate downloaded successfully!" });
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast({ title: "Error", description: "Failed to download certificate", variant: "destructive" });
+    } finally {
+      if (container && container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+      setDownloadingId(null);
     }
   };
 
@@ -150,8 +293,7 @@ const DocumentHistory = () => {
                   aria-label="Search documents"
                 />
               </div>
-              
-              {/* Items per page selector */}
+
               <select
                 value={limit}
                 onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
@@ -214,15 +356,26 @@ const DocumentHistory = () => {
                       </span>
                     </div>
                     {doc.status === "issued" && (
-                      <div className="mt-3 pt-2 border-t border-slate-100">
+                      <div className="mt-3 pt-2 border-t border-slate-100 flex gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => exportToPDF(doc)}
+                          disabled={downloadingId === doc._id}
+                          className="flex-1 text-xs h-8 bg-[#6699ff] hover:bg-[#5588ee]"
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          {downloadingId === doc._id ? "..." : "Download"}
+                        </Button>
                         <Button
                           variant="destructive"
                           size="sm"
                           onClick={() => handleRevoke(doc._id)}
                           disabled={revokingId === doc._id}
-                          className="w-full text-xs h-8 bg-red-600 hover:bg-red-700"
+                          className="flex-1 text-xs h-8 bg-red-600 hover:bg-red-700"
                         >
-                          {revokingId === doc._id ? "Revoking..." : "Revoke Document"}
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          {revokingId === doc._id ? "Revoking..." : "Revoke"}
                         </Button>
                       </div>
                     )}
@@ -273,16 +426,28 @@ const DocumentHistory = () => {
                         </td>
                         <td className="py-5 px-8 text-center">
                           {doc.status === "issued" ? (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleRevoke(doc._id)}
-                              disabled={revokingId === doc._id}
-                              className="h-8 px-3 text-xs bg-red-600 hover:bg-red-700"
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" />
-                              {revokingId === doc._id ? "Revoking..." : "Revoke"}
-                            </Button>
+                            <div className="flex flex-col items-stretch gap-1.5">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => exportToPDF(doc)}
+                                disabled={downloadingId === doc._id}
+                                className="h-7 px-2 text-[11px] bg-[#6699ff] hover:bg-[#5588ee] whitespace-nowrap"
+                              >
+                                <Download className="w-3 h-3 mr-1" />
+                                {downloadingId === doc._id ? "..." : "Download"}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleRevoke(doc._id)}
+                                disabled={revokingId === doc._id}
+                                className="h-7 px-2 text-[11px] bg-red-600 hover:bg-red-700 whitespace-nowrap"
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                {revokingId === doc._id ? "Revoking..." : "Revoke"}
+                              </Button>
+                            </div>
                           ) : (
                             <span className="text-xs text-slate-400">—</span>
                           )}
