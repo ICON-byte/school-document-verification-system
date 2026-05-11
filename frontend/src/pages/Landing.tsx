@@ -43,25 +43,36 @@ const Landing = () => {
   const testimonialsInView = useInView(testimonialsRef, { once: true });
   const servicesInView = useInView(servicesRef, { once: true });
 
-  // Prevent body margin/padding that could cause extra space
+  // Prevent body/document overflow
   useEffect(() => {
-    // Remove any default body margins and ensure clean document dimensions
-    document.body.style.margin = "0";
-    document.body.style.padding = "0";
     document.documentElement.style.margin = "0";
     document.documentElement.style.padding = "0";
-    document.documentElement.style.height = "100%";
+    document.documentElement.style.overflowX = "hidden";
+    document.body.style.margin = "0";
+    document.body.style.padding = "0";
+    document.body.style.overflowX = "hidden";
     document.body.style.height = "100%";
+    document.documentElement.style.height = "100%";
     
     return () => {
-      document.body.style.margin = "";
-      document.body.style.padding = "";
       document.documentElement.style.margin = "";
       document.documentElement.style.padding = "";
-      document.documentElement.style.height = "";
+      document.documentElement.style.overflowX = "";
+      document.body.style.margin = "";
+      document.body.style.padding = "";
+      document.body.style.overflowX = "";
       document.body.style.height = "";
+      document.documentElement.style.height = "";
     };
   }, []);
+
+  // Smooth scroll to section using scrollIntoView with CSS offset
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +115,7 @@ const Landing = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-gray-900 overflow-x-hidden">
-      {/* ===== DECORATIVE LAYERS (fixed, no impact on document height) ===== */}
+      {/* ===== DECORATIVE LAYERS (fixed, clipped) ===== */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <div className="absolute bottom-0 left-0 w-full h-2/3 bg-[#1E3A8A]/20 rounded-t-[150px] -rotate-6 animate-wave-sway" />
         <div className="absolute bottom-10 right-0 w-full h-1/2 bg-[#1E3A8A]/20 rounded-t-[180px] rotate-6 animate-wave-sway-reverse" />
@@ -159,14 +170,24 @@ const Landing = () => {
       {/* Glassmorphism Navbar */}
       <nav className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-white/80 border-b border-gray-200 h-[70px] shadow-sm">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between h-full">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => scrollToSection("home")}>
             <img src="/logo-Neo.png" alt="Neo Cloud Technologies Logo" className="h-12 w-auto object-contain" />
           </div>
           <div className="hidden md:flex gap-8 text-gray-700 font-medium">
-            {["Home", "Services", "Verification", "Security", "Contact"].map((item) => (
-              <a key={item} href={`#${item.toLowerCase().replace(/\s/g, "-")}`} className="hover:text-[#1E3A8A] transition duration-200">
-                {item}
-              </a>
+            {[
+              { name: "Home", id: "home" },
+              { name: "Services", id: "services" },
+              { name: "Verification", id: "verification" },
+              { name: "Security", id: "security" },
+              { name: "Contact", id: "contact" }
+            ].map((item) => (
+              <button
+                key={item.name}
+                onClick={() => scrollToSection(item.id)}
+                className="hover:text-[#1E3A8A] transition duration-200 cursor-pointer bg-transparent border-none text-inherit font-medium"
+              >
+                {item.name}
+              </button>
             ))}
           </div>
           <Link to="/login">
@@ -177,10 +198,10 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* Main content - flex-grow ensures footer sticks to bottom when content is short */}
+      {/* Main content */}
       <main className="flex-grow pt-[70px] relative z-10">
-        {/* Hero Section */}
-        <section id="home" className="container mx-auto px-6 py-16 md:py-24">
+        {/* Hero Section with Video */}
+        <section id="home" className="container mx-auto px-6 py-16 md:py-24 scroll-mt-[70px]">
           <div className="flex flex-col lg:flex-row items-center gap-12">
             <div className="flex-1 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 bg-gray-100 rounded-full px-4 py-1.5 text-sm mb-6">
@@ -197,7 +218,10 @@ const Landing = () => {
                 Domain registration, web hosting, software development, and IT consulting – tailored for African businesses.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Button className="bg-[#1E3A8A] hover:bg-[#1E3A8A]/90 text-white px-8 py-6 text-lg rounded-full shadow-md hover:shadow-lg transition-all">
+                <Button 
+                  className="bg-[#1E3A8A] hover:bg-[#1E3A8A]/90 text-white px-8 py-6 text-lg rounded-full shadow-md hover:shadow-lg transition-all"
+                  onClick={() => scrollToSection("services")}
+                >
                   Explore Services <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
                 <Button onClick={() => setShowScanner(true)} variant="outline" className="border-2 border-[#1E3A8A] text-[#1E3A8A] hover:bg-[#1E3A8A]/10 px-8 py-6 text-lg rounded-full">
@@ -211,33 +235,30 @@ const Landing = () => {
               </div>
             </div>
 
-            {/* 3D QR Illustration */}
+            {/* Video Demonstration - Larger size, well-presented */}
             <div className="flex-1 relative flex justify-center">
-              <div className="relative w-80 h-80 md:w-96 md:h-96">
+              <div className="relative w-full max-w-md md:max-w-xl lg:max-w-2xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A8A]/15 to-[#F7941D]/15 rounded-3xl blur-2xl animate-pulse-slow" />
-                <motion.div
-                  animate={{ rotateY: 360 }}
-                  transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-                  style={{ transformStyle: "preserve-3d" }}
-                  className="w-full h-full relative"
-                >
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-white/90 backdrop-blur-sm shadow-xl rounded-2xl border border-gray-200 p-8 transition-all duration-300 hover:scale-105" style={{ transform: "translateZ(40px)" }}>
-                      <QrCode className="w-48 h-48 text-[#1E3A8A] mx-auto" strokeWidth={1.2} />
-                      <div className="mt-6 text-center">
-                        <div className="text-sm text-gray-500">Scan to Verify</div>
-                        <div className="h-1 w-16 bg-gradient-to-r from-[#1E3A8A] to-[#F7941D] rounded-full mx-auto mt-2" />
-                      </div>
-                    </div>
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-200 bg-white">
+                  <video 
+                    src="/video.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-auto object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                    <p className="text-white text-sm text-center font-medium">See how verification works in seconds</p>
                   </div>
-                </motion.div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {/* Core Services Section */}
-        <section id="services" ref={servicesRef} className="bg-white/60 backdrop-blur-sm py-20">
+        <section id="services" ref={servicesRef} className="bg-white/60 backdrop-blur-sm py-20 scroll-mt-[70px]">
           <div className="container mx-auto px-6">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={servicesInView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6 }} className="text-center max-w-2xl mx-auto mb-16">
               <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">What We Do</h2>
@@ -259,7 +280,7 @@ const Landing = () => {
         </section>
 
         {/* Verification Features */}
-        <section id="verification" ref={featuresRef} className="py-20">
+        <section id="verification" ref={featuresRef} className="py-20 scroll-mt-[70px]">
           <div className="container mx-auto px-6">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={featuresInView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6 }} className="text-center max-w-2xl mx-auto mb-16">
               <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Academic Document Verification</h2>
@@ -331,7 +352,7 @@ const Landing = () => {
         </section>
 
         {/* Security Showcase */}
-        <section id="security" ref={securityRef} className="bg-white/60 backdrop-blur-sm py-20">
+        <section id="security" ref={securityRef} className="bg-white/60 backdrop-blur-sm py-20 scroll-mt-[70px]">
           <div className="container mx-auto px-6">
             <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={securityInView ? { opacity: 1, scale: 1 } : {}} transition={{ duration: 0.5 }} className="bg-white rounded-3xl p-8 md:p-12 shadow-md border border-gray-100">
               <div className="flex flex-col md:flex-row gap-12 items-center">
@@ -381,8 +402,8 @@ const Landing = () => {
         </section>
       </main>
 
-      {/* Footer - no extra margins, ensures clean end of document */}
-      <footer className="bg-white/80 backdrop-blur-sm border-t border-gray-200 py-16 text-center">
+      {/* Footer / Contact Section */}
+      <footer id="contact" className="bg-white/80 backdrop-blur-sm border-t border-gray-200 py-16 text-center scroll-mt-[70px]">
         <div className="container mx-auto px-6">
           <h2 className="text-3xl md:text-4xl font-bold mb-6 text-gray-900">Ready to Digitize Your Business?</h2>
           <p className="text-gray-600 max-w-2xl mx-auto mb-8">Get in touch with us for domain registration, hosting, custom software, or document verification.</p>
@@ -403,14 +424,16 @@ const Landing = () => {
 
       {/* Global reset & animations */}
       <style>{`
-        /* Ensure no margins or padding cause extra document height */
+        /* Prevent any horizontal scroll globally */
         html, body, #root {
           margin: 0;
           padding: 0;
+          overflow-x: hidden;
+          width: 100%;
           height: 100%;
         }
         
-        /* Animation keyframes */
+        /* Animation keyframes (same as original) */
         @keyframes wave-sway { 0%,100% { transform: rotate(-6deg) translateX(0); } 50% { transform: rotate(-3deg) translateX(3%); } }
         @keyframes wave-sway-reverse { 0%,100% { transform: rotate(6deg) translateX(0); } 50% { transform: rotate(3deg) translateX(-3%); } }
         @keyframes gradient-breathing { 0%,100% { opacity: 0.15; transform: scale(1); } 50% { opacity: 0.35; transform: scale(1.05); } }
