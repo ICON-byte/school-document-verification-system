@@ -86,12 +86,12 @@ const Dashboard = () => {
         console.warn("Stats fetch failed", err);
       }
 
-      // 2. Fetch recent documents (latest 10)
+      // 2. Fetch recent documents (latest 5)
       let docsData: RecentDocument[] = [];
       let docsSuccess = false;
 
       try {
-        const docsRes = await fetch(`${API_BASE}/dashboard/recent?limit=10`, {
+        const docsRes = await fetch(`${API_BASE}/dashboard/recent?limit=5`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (docsRes.ok) {
@@ -105,7 +105,7 @@ const Dashboard = () => {
 
       if (!docsSuccess) {
         try {
-          const fallbackRes = await fetch(`${API_BASE}/documents/recent?limit=10`, {
+          const fallbackRes = await fetch(`${API_BASE}/documents/recent?limit=5`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (fallbackRes.ok) {
@@ -118,7 +118,7 @@ const Dashboard = () => {
         }
       }
 
-      if (docsSuccess && docsData.length > 10) docsData = docsData.slice(0, 10);
+      if (docsSuccess && docsData.length > 5) docsData = docsData.slice(0, 5);
       setRecentDocs(docsSuccess ? docsData : []);
 
       if (!docsSuccess) {
@@ -215,7 +215,7 @@ const Dashboard = () => {
           <div className="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center gap-4">
             <div>
               <h2 className="text-xl font-semibold text-black">Recent Documents</h2>
-              <p className="text-sm text-slate-500">Latest 10 issued documents</p>
+              <p className="text-sm text-slate-500">Latest 5 issued documents</p>
             </div>
             <Link to="/admin/history">
               <Button variant="outline" size="sm" className="gap-1">

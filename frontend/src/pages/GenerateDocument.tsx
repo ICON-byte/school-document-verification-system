@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { QRCodeSVG } from "qrcode.react";
-import { FileText, Download, Search, ChevronDown, Award, GraduationCap, ScrollText } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import QRCode from "qrcode";
+import { FileText, Download, Search, ChevronDown, Award, GraduationCap, ScrollText, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,6 +23,7 @@ interface Student {
   dateOfBirth?: string;
   parentContact?: string;
   isActive: boolean;
+  profileImageUrl?: string;
 }
 
 interface Document {
@@ -42,6 +43,15 @@ const documentTypes = [
   { value: "statement", label: "Statement of Result", icon: FileText },
 ];
 
+const formatCertificateNumber = (code: string): string => {
+  if (!code) return "No. 0000/0000.0.0/00-0000";
+  const clean = code.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  if (clean.length >= 12) {
+    return `No. ${clean.slice(0, 4)}/${clean.slice(4, 8)}.${clean.slice(8, 10)}/${clean.slice(10, 12)}-${clean.slice(12, 16)}`;
+  }
+  return `No. ${clean}`;
+};
+
 const GenerateDocument = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState("");
@@ -51,18 +61,20 @@ const GenerateDocument = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState(false);
+  const certificateRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  // Prevent overscroll beyond top or bottom
   useEffect(() => {
-    const originalStyle = window.getComputedStyle(document.documentElement).overscrollBehavior;
     document.documentElement.style.overscrollBehavior = "none";
     document.body.style.overscrollBehavior = "none";
     return () => {
-      document.documentElement.style.overscrollBehavior = originalStyle;
-      document.body.style.overscrollBehavior = originalStyle;
+      document.documentElement.style.overscrollBehavior = "";
+      document.body.style.overscrollBehavior = "";
     };
   }, []);
 
@@ -101,12 +113,51 @@ const GenerateDocument = () => {
     if (student) setSearchQuery(student.fullName);
   };
 
+  // Generate QR code when document is generated
+  useEffect(() => {
+    const generateQR = async () => {
+      if (!generated?.verificationCode) {
+        console.warn("No verification code found in generated document");
+        setQrDataUrl(null);
+        setQrError(true);
+        setQrLoading(false);
+        return;
+      }
+
+      setQrLoading(true);
+      setQrError(false);
+      setQrDataUrl(null);
+      try {
+        console.log("Generating QR for code:", generated.verificationCode);
+        const url = await QRCode.toDataURL(generated.verificationCode, {
+          width: 140,
+          margin: 1,
+          color: {
+            dark: "#6699FF",
+            light: "#FFFFFF",
+          },
+        });
+        setQrDataUrl(url);
+        console.log("QR generated successfully, URL length:", url.length);
+      } catch (err) {
+        console.error("QR generation failed:", err);
+        setQrError(true);
+        setQrDataUrl(null);
+      } finally {
+        setQrLoading(false);
+      }
+    };
+    generateQR();
+  }, [generated]);
+
   const handleGenerate = async () => {
     if (!selectedStudent || !docType) {
       toast({ title: "Missing fields", description: "Please select both student and document type", variant: "destructive" });
       return;
     }
     setLoading(true);
+    setQrDataUrl(null);
+    setQrError(false);
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
@@ -119,14 +170,16 @@ const GenerateDocument = () => {
         body: JSON.stringify({
           studentId: selectedStudent,
           documentType: docType,
-          content: { program: "Computer Science", records: [] },
+          content: { className: selectedStudentObj?.className || "Computer Science", records: [] },
         }),
       });
       if (!res.ok) throw new Error("Failed to generate document");
       const data = await res.json();
+      console.log("Generated document:", data.document);
       setGenerated(data.document);
       toast({ title: "Success", description: "Document generated successfully!" });
     } catch (error: any) {
+      console.error("Generation error:", error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -134,28 +187,83 @@ const GenerateDocument = () => {
   };
 
   const exportToPDF = async () => {
-    const certificateElement = document.getElementById("certificate-preview");
-    if (!certificateElement) return;
+    const element = certificateRef.current;
+    if (!element) return;
+
     setExporting(true);
     try {
-      const canvas = await html2canvas(certificateElement, {
-        scale: 2,
+      // Wait for the QR image to finish loading (if it exists and has a src)
+      const qrImg = element.querySelector('img[alt="QR Code"]') as HTMLImageElement;
+      if (qrImg && qrImg.src && !qrImg.complete) {
+        await new Promise<void>((resolve, reject) => {
+          qrImg.onload = () => resolve();
+          qrImg.onerror = () => reject(new Error("QR image failed to load"));
+          if (qrImg.complete) resolve();
+        });
+      }
+
+      // Prepare certificate element for capture
+      const originalOverflow = element.style.overflow;
+      const originalMaxWidth = element.style.maxWidth;
+      const originalHeight = element.style.height;
+
+      element.style.overflow = "visible";
+      element.style.maxWidth = "none";
+      element.style.height = "auto";
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Capture with html2canvas
+      const canvas = await html2canvas(element, {
+        scale: 3,
         backgroundColor: "#ffffff",
         logging: false,
         useCORS: true,
+        allowTaint: false,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        onclone: (clonedDoc) => {
+          const clonedEl = clonedDoc.getElementById("certificate-preview");
+          if (clonedEl) {
+            clonedEl.style.overflow = "visible";
+            clonedEl.style.height = "auto";
+          }
+          const images = clonedDoc.getElementsByTagName("img");
+          for (let i = 0; i < images.length; i++) {
+            images[i].crossOrigin = "anonymous";
+          }
+        },
       });
+
+      // Restore original styles
+      element.style.overflow = originalOverflow;
+      element.style.maxWidth = originalMaxWidth;
+      element.style.height = originalHeight;
+
+      // Generate PDF
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
-        orientation: "landscape",
+        orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
-      const imgWidth = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      const scale = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const finalWidth = imgWidth * scale;
+      const finalHeight = imgHeight * scale;
+      const x = (pdfWidth - finalWidth) / 2;
+      const y = (pdfHeight - finalHeight) / 2;
+
+      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
       pdf.save(`certificate_${generated?.documentType}_${new Date().toISOString().split("T")[0]}.pdf`);
       toast({ title: "Success", description: "PDF downloaded successfully!" });
     } catch (error) {
+      console.error("PDF export error:", error);
       toast({ title: "Error", description: "Failed to generate PDF", variant: "destructive" });
     } finally {
       setExporting(false);
@@ -163,18 +271,40 @@ const GenerateDocument = () => {
   };
 
   const selectedStudentObj = students.find((s) => s._id === selectedStudent);
+  const fieldOfStudy = selectedStudentObj?.className || generated?.content?.className || "Computer Science";
+
+  const displayIssueDate = generated?.issueDate
+    ? new Date(generated.issueDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    : new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  const certificateNumber = generated?.verificationCode
+    ? formatCertificateNumber(generated.verificationCode)
+    : "No. 0000/0000.0.0/00-0000";
 
   const getDocumentTitle = () => {
-    switch(docType) {
+    switch (docType) {
       case "degree": return "BACHELOR'S DEGREE CERTIFICATE";
       case "diploma": return "DIPLOMA CERTIFICATE";
       case "transcript": return "ACADEMIC TRANSCRIPT";
       case "statement": return "STATEMENT OF RESULT";
-      default: return "OFFICIAL DOCUMENT";
+      default: return "CERTIFICATE";
     }
   };
 
-  const issueDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const getAwardText = () => {
+    switch (docType) {
+      case "degree":
+        return `has been conferred the degree of Bachelor of Science in ${fieldOfStudy} with all the rights, privileges, and honors thereunto appertaining.`;
+      case "diploma":
+        return `has successfully completed the prescribed program of study and is hereby awarded the Diploma in ${fieldOfStudy} in recognition of academic achievement and proficiency.`;
+      case "transcript":
+        return `This official Academic Transcript is issued to certify the academic record and credits earned in ${fieldOfStudy}.`;
+      case "statement":
+        return `This Statement of Result is issued to confirm the examination results and academic performance in ${fieldOfStudy}.`;
+      default:
+        return `has met all requirements and is hereby awarded this certification in ${fieldOfStudy}.`;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 pb-20 md:p-8 md:pb-20 font-sans">
@@ -255,8 +385,8 @@ const GenerateDocument = () => {
                 </Select>
               </div>
 
-              <Button 
-                onClick={handleGenerate} 
+              <Button
+                onClick={handleGenerate}
                 disabled={loading}
                 className="w-full h-12 rounded-lg bg-[#6699FF] hover:bg-[#5588ee] text-white font-bold shadow-md active:scale-[0.98]"
               >
@@ -271,112 +401,167 @@ const GenerateDocument = () => {
               <Card className="bg-white border-0 rounded-xl shadow-xl overflow-hidden">
                 <div className="px-4 py-3 md:px-6 md:py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-white">
                   <h2 className="text-base md:text-lg font-semibold text-slate-800">Certificate Preview</h2>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={exportToPDF}
                     disabled={exporting}
                     size="sm"
                     className="rounded-lg border-slate-200 shadow-sm hover:bg-slate-50"
                   >
-                    <Download className="w-4 h-4 mr-2" /> 
+                    <Download className="w-4 h-4 mr-2" />
                     {exporting ? "Exporting..." : "Export PDF"}
                   </Button>
                 </div>
 
                 <div className="p-3 md:p-4 bg-slate-100 overflow-x-auto">
-                  <div id="certificate-preview" className="mx-auto w-full max-w-4xl bg-white shadow-xl rounded-lg overflow-hidden">
-                    <div className="relative">
-                      <div className="absolute inset-0 pointer-events-none border border-[#6699FF]/20 rounded-lg" />
-                      <div className="absolute top-0 left-0 w-6 h-6 md:w-8 md:h-8 border-t-2 border-l-2 border-[#6699FF]/30 rounded-tl-md" />
-                      <div className="absolute top-0 right-0 w-6 h-6 md:w-8 md:h-8 border-t-2 border-r-2 border-[#6699FF]/30 rounded-tr-md" />
-                      <div className="absolute bottom-0 left-0 w-6 h-6 md:w-8 md:h-8 border-b-2 border-l-2 border-[#6699FF]/30 rounded-bl-md" />
-                      <div className="absolute bottom-0 right-0 w-6 h-6 md:w-8 md:h-8 border-b-2 border-r-2 border-[#6699FF]/30 rounded-br-md" />
+                  <div
+                    ref={certificateRef}
+                    id="certificate-preview"
+                    className="mx-auto w-full max-w-4xl bg-white shadow-2xl rounded-lg"
+                  >
+                    <div className="relative bg-gradient-to-br from-white to-slate-50">
+                      {/* Border lines */}
+                      <div className="absolute inset-4 pointer-events-none border-2 border-[#6699FF] rounded-sm" />
+                      <div className="absolute inset-6 pointer-events-none border border-[#a0c0ff] rounded-sm" />
 
-                      <div className="p-3 md:p-5 relative z-10">
-                        <div className="flex justify-between items-center mb-2 border-b border-slate-200 pb-2">
-                          <div>
-                            <h1 className="text-xl md:text-2xl font-bold text-slate-800">NEO CLOUD</h1>
-                            <p className="text-[8px] md:text-[10px] text-slate-500 uppercase">Academic & Records Office</p>
+                      {/* Corner decorations */}
+                      <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-[#6699FF]" />
+                      <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-[#6699FF]" />
+                      <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-[#6699FF]" />
+                      <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-[#6699FF]" />
+
+                      <div className="p-8 md:p-12 relative z-10">
+                        {/* Header with Logo */}
+                        <div className="text-center mb-6">
+                          <div className="flex justify-center items-center gap-4 mb-2">
+                            <div className="h-px w-12 bg-[#6699FF]" />
+                            <div className="w-16 h-16 flex items-center justify-center">
+                              <img
+                                src="/logo-Neo.png"
+                                alt="Neo Cloud Logo"
+                                className="max-w-full max-h-full object-contain"
+                                crossOrigin="anonymous"
+                              />
+                            </div>
+                            <div className="h-px w-12 bg-[#6699FF]" />
                           </div>
-                          <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-50 rounded-full flex items-center justify-center border border-[#6699FF]/20">
-                            <img src="/logo-Neo-2.png" alt="Logo" className="w-6 h-6 md:w-7 md:h-7 object-contain" />
-                          </div>
+                          <h1 className="text-3xl md:text-4xl font-serif font-bold tracking-wide text-[#2c3e50]">Neo Cloud</h1>
+                          <p className="text-sm md:text-base tracking-wider text-[#6699FF] font-medium">ICT SKILLS ANYWHERE</p>
+                          <div className="w-24 h-px bg-[#6699FF] mx-auto my-3" />
                         </div>
 
-                        <div className="text-center mb-2">
-                          <h2 className="text-base md:text-xl font-bold text-slate-800 uppercase tracking-wide">
+                        {/* Certificate Title */}
+                        <div className="text-center mb-4">
+                          <h2 className="text-xl md:text-2xl font-serif font-bold text-[#2c3e50] uppercase tracking-wider border-b-2 border-[#6699FF] inline-block pb-1 px-4">
                             {getDocumentTitle()}
                           </h2>
-                          <p className="text-[8px] md:text-[10px] text-slate-500 mt-1">This certifies that</p>
                         </div>
 
-                        <div className="text-center mb-2">
-                          <p className="text-xl md:text-2xl font-serif font-bold text-slate-800 border-b border-[#6699FF]/20 inline-block pb-0.5 px-3 md:px-4">
-                            {/* Use the actual selected student's name */}
-                            {selectedStudentObj?.fullName || "Student Name"}
+                        {/* Certificate Number */}
+                        <div className="text-right mb-5">
+                          <p className="text-sm font-mono text-[#6699FF] bg-[#f0f4ff] inline-block px-3 py-1 rounded border border-[#a0c0ff]">
+                            {certificateNumber}
                           </p>
                         </div>
 
-                        <div className="text-center text-slate-600 space-y-0.5 mb-3 text-[10px] md:text-xs">
-                          {docType === "degree" && (
-                            <>
-                              <p>has successfully completed all requirements for the degree of</p>
-                              <p className="text-sm md:text-base font-serif font-semibold text-[#6699FF]">
-                                Bachelor of Science in Computer Science
-                              </p>
-                              <p>with all rights, privileges, and honors thereunto appertaining.</p>
-                            </>
-                          )}
-                          {docType === "diploma" && (
-                            <>
-                              <p>has successfully completed the program of study and is hereby awarded the</p>
-                              <p className="text-sm md:text-base font-serif font-semibold text-[#6699FF]">
-                                Diploma in Information Technology
-                              </p>
-                              <p>in recognition of academic achievement.</p>
-                            </>
-                          )}
-                          {(docType === "transcript" || docType === "statement") && (
-                            <p className="text-xs md:text-sm font-medium">Academic Record</p>
-                          )}
-                        </div>
-
-                        <div className="flex justify-between items-end border-t border-slate-200 pt-3 mt-2">
-                          <div className="text-left text-[8px] md:text-[10px] leading-tight">
-                            <p>Issued: {issueDate}</p>
-                            {/* Use the actual selected student's admission number */}
-                            <p>Admission: {selectedStudentObj?.admissionNo || "N/A"}</p>
-                          </div>
-                          <div className="text-right flex flex-col items-end">
-                            <div className="bg-white p-1 rounded border border-slate-200">
-                              <QRCodeSVG value={generated.verificationCode} size={40} />
-                            </div>
-                            <p className="text-[7px] md:text-[8px] uppercase text-slate-400 font-bold mt-1">Verification Code</p>
-                            <p className="text-[8px] md:text-[9px] font-mono font-bold text-[#6699FF]">{generated.verificationCode}</p>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 pt-2 flex justify-between items-end text-[7px] md:text-[9px]">
-                          <div className="text-center w-1/3">
-                            <div className="w-full h-px bg-slate-300 mb-0.5" />
-                            <p>Registrar's Signature</p>
-                          </div>
-                          <div className="text-center w-1/3">
-                            <div className="w-full h-px bg-slate-300 mb-0.5" />
-                            <p>Academic Dean</p>
-                          </div>
-                          <div className="text-center w-1/3">
-                            <div className="flex justify-center mb-0.5">
-                              <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border border-[#6699FF]/40 flex items-center justify-center">
-                                <Award className="w-3 h-3 md:w-4 md:h-4 text-[#6699FF]/60" />
+                        {/* Main Body with Profile Picture */}
+                        <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
+                          <div className="flex-shrink-0">
+                            {selectedStudentObj?.profileImageUrl ? (
+                              <img
+                                src={selectedStudentObj.profileImageUrl}
+                                alt="Profile"
+                                className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border-2 border-[#6699FF] shadow-md"
+                                crossOrigin="anonymous"
+                              />
+                            ) : (
+                              <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-slate-100 border-2 border-[#6699FF] flex items-center justify-center shadow-md">
+                                <User className="w-12 h-12 text-[#6699FF]" />
                               </div>
-                            </div>
-                            <p>University Seal</p>
+                            )}
+                          </div>
+
+                          <div className="flex-1 text-center md:text-left">
+                            <p className="text-base md:text-lg text-slate-600 italic mb-1">This Certificate is presented to</p>
+                            <p className="text-2xl md:text-3xl font-serif font-bold text-[#2c3e50] border-b-2 border-dotted border-[#6699FF] inline-block px-4 pb-1 mb-3">
+                              {selectedStudentObj?.fullName || "Student Name"}
+                            </p>
+                            <p className="text-sm md:text-base text-slate-600 leading-relaxed">
+                              {getAwardText()}
+                            </p>
                           </div>
                         </div>
 
-                        <div className="text-center mt-2 text-[6px] md:text-[8px] text-slate-400 uppercase">
-                          Electronically verified – check QR code
+                        {/* Additional details row */}
+                        <div className="flex justify-between items-center text-xs md:text-sm text-slate-500 mb-5 border-t border-[#a0c0ff] pt-3">
+                          <div>
+                            <span className="font-bold">Admission No:</span> {selectedStudentObj?.admissionNo || "N/A"}
+                          </div>
+                          <div>
+                            <span className="font-bold">Field of Study:</span> {fieldOfStudy}
+                          </div>
+                          <div>
+                            <span className="font-bold">Date of Issue:</span> {displayIssueDate}
+                          </div>
+                        </div>
+
+                        {/* Signatures and Seal Section */}
+                        <div className="flex justify-between items-end mt-6">
+                          <div className="text-center w-1/3">
+                            <div className="w-32 h-px bg-[#2c3e50] mx-auto mb-1" />
+                            <p className="text-xs font-serif text-[#2c3e50]">Registrar's Signature</p>
+                            <p className="text-[10px] text-slate-400">(Authority)</p>
+                          </div>
+                          <div className="text-center">
+                            <div className="w-16 h-16 rounded-full border-2 border-[#6699FF] flex items-center justify-center bg-[#f0f4ff] mx-auto">
+                              <Award className="w-8 h-8 text-[#6699FF]" />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">Official Seal</p>
+                          </div>
+                          <div className="text-center w-1/3">
+                            <div className="w-32 h-px bg-[#2c3e50] mx-auto mb-1" />
+                            <p className="text-xs font-serif text-[#2c3e50]">Director's Signature</p>
+                            <p className="text-[10px] text-slate-400">(Academic Dean)</p>
+                          </div>
+                        </div>
+
+                        {/* QR Code Section with Loading/Error States */}
+                        <div className="mt-6 flex justify-between items-end border-t border-[#a0c0ff] pt-3">
+                          <div className="text-left">
+                            <p className="text-[10px] text-slate-400">Electronically Verified Document</p>
+                          </div>
+                          <div className="text-center">
+                            <div className="bg-white p-1 rounded border border-[#6699FF] inline-block min-w-[65px] min-h-[65px] flex items-center justify-center">
+                              {qrLoading ? (
+                                <div className="w-[55px] h-[55px] flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6699FF]"></div>
+                                </div>
+                              ) : qrError ? (
+                                <div className="w-[55px] h-[55px] flex items-center justify-center text-[10px] text-red-500 text-center">
+                                  QR Error
+                                </div>
+                              ) : qrDataUrl ? (
+                                <img
+                                  src={qrDataUrl}
+                                  alt="QR Code"
+                                  width={55}
+                                  height={55}
+                                  crossOrigin="anonymous"
+                                />
+                              ) : (
+                                <div className="w-[55px] h-[55px] flex items-center justify-center text-[10px] text-slate-400">
+                                  No QR
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[8px] uppercase text-slate-400 font-bold mt-1">Verification Code</p>
+                            <p className="text-[9px] font-mono text-[#6699FF] break-all max-w-[120px] mx-auto">
+                              {generated.verificationCode || "MISSING"}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[9px] text-slate-400">Issue ID: {generated._id?.slice(-8)}</p>
+                          </div>
                         </div>
                       </div>
                     </div>
