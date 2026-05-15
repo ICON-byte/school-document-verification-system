@@ -1,332 +1,203 @@
-import { useEffect, useState } from "react";
-import { RefreshCw, FileText } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import StatCard from "@/components/StatCard";
+import { mockStudents, mockDocuments } from "@/lib/mockData";
 
-interface StatData {
-  totalStudents: number;
-  totalDocuments: number;
-  validDocuments: number;
-  revokedDocuments: number;
-}
-
-interface RecentDocument {
-  _id: string;
-  studentId?: {
-    fullName: string;
-    admissionNo: string;
-  };
-  documentType: string;
-  issueDate: string;
-  status: string;
-  verificationCode: string;
-}
+const ROWS_PER_PAGE = 5;
 
 const Dashboard = () => {
-  const [stats, setStats] = useState<StatData>({
-    totalStudents: 0,
-    totalDocuments: 0,
-    validDocuments: 0,
-    revokedDocuments: 0,
-  });
-  const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
-  useEffect(() => {
-    const originalStyle = window.getComputedStyle(document.documentElement).overscrollBehavior;
-    document.documentElement.style.overscrollBehavior = "none";
-    document.body.style.overscrollBehavior = "none";
-    return () => {
-      document.documentElement.style.overscrollBehavior = originalStyle;
-      document.body.style.overscrollBehavior = originalStyle;
-    };
-  }, []);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Not authenticated. Please login.");
-        setLoading(false);
-        return;
-      }
-
-      // 1. Fetch stats
-      try {
-        const statsRes = await fetch(`${API_BASE}/dashboard/stats`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (statsRes.ok) {
-          const rawStats = await statsRes.json();
-          setStats({
-            totalStudents: rawStats.totalStudents ?? 0,
-            totalDocuments: rawStats.totalDocuments ?? 0,
-            validDocuments: rawStats.validDocuments ?? rawStats.totalDocuments ?? 0,
-            revokedDocuments: rawStats.revokedDocuments ?? 0,
-          });
-        } else if (statsRes.status === 401) {
-          throw new Error("Session expired");
-        } else {
-          console.warn("Stats endpoint returned", statsRes.status);
-        }
-      } catch (err) {
-        console.warn("Stats fetch failed", err);
-      }
-
-      // 2. Fetch recent documents (latest 5)
-      let docsData: RecentDocument[] = [];
-      let docsSuccess = false;
-
-      try {
-        const docsRes = await fetch(`${API_BASE}/dashboard/recent?limit=5`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (docsRes.ok) {
-          const data = await docsRes.json();
-          docsData = Array.isArray(data) ? data : (data.documents || []);
-          docsSuccess = true;
-        }
-      } catch (err) {
-        console.warn("Primary recent endpoint failed", err);
-      }
-
-      if (!docsSuccess) {
-        try {
-          const fallbackRes = await fetch(`${API_BASE}/documents/recent?limit=5`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (fallbackRes.ok) {
-            const data = await fallbackRes.json();
-            docsData = Array.isArray(data) ? data : (data.documents || []);
-            docsSuccess = true;
-          }
-        } catch (err) {
-          console.warn("Fallback recent endpoint failed", err);
-        }
-      }
-
-      if (docsSuccess && docsData.length > 5) docsData = docsData.slice(0, 5);
-      setRecentDocs(docsSuccess ? docsData : []);
-
-      if (!docsSuccess) {
-        toast({
-          title: "Info",
-          description: "Recent documents could not be loaded, but other data is shown.",
-          variant: "default",
-        });
-      }
-    } catch (err: any) {
-      console.error("Dashboard fetch error:", err.message);
-      if (err.message === "Session expired") {
-        setError("Session expired. Please login again.");
-      } else {
-        setError("Failed to connect to server. Make sure backend is running.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const StatCard = ({ title, value, description }: any) => (
-    <Card className="bg-white border-0 rounded-md shadow-md hover:shadow-lg transition-all duration-300">
-      <CardContent className="p-5">
-        <div className="text-left">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</p>
-          <p className="text-3xl font-bold text-black mt-2">{value}</p>
-          <p className="text-xs text-[#6699ff] mt-1">{description}</p>
-        </div>
-      </CardContent>
-    </Card>
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalStudents = mockStudents.length;
+  const totalDocuments = mockDocuments.length;
+  const validDocs = mockDocuments.filter((d) => d.status === "valid").length;
+  const revokedDocs = mockDocuments.filter(
+    (d) => d.status === "revoked",
+  ).length;
+  const totalPages = Math.ceil(mockDocuments.length / ROWS_PER_PAGE);
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
+  const startItem =
+    mockDocuments.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1;
+  const endItem = Math.min(currentPage * ROWS_PER_PAGE, mockDocuments.length);
+  const paginatedDocuments = mockDocuments.slice(
+    (currentPage - 1) * ROWS_PER_PAGE,
+    currentPage * ROWS_PER_PAGE,
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f8faff] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#6699ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#f8faff] flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 mb-4">⚠️ {error}</div>
-          <button
-            onClick={() => (window.location.href = "/login")}
-            className="px-4 py-2 bg-[#6699ff] text-white rounded-md hover:bg-[#5588ee]"
-          >
-            Go to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#f8faff] p-4 md:p-8 font-sans">
-      <div className="max-w-screen-2xl mx-auto">
-        {/* Header with refresh button - responsive */}
-        <div className="bg-white border-none rounded-md shadow-md p-6 md:p-8 mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-black tracking-tight">Dashboard</h1>
-              <p className="text-sm text-slate-500 mt-1">Overview of your document verification system</p>
-            </div>
-            <Button
-              onClick={fetchDashboardData}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={loading}
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          </div>
+    <div className="p-8">
+      <div className="mb-2 flex flex-row gap-[20rem]">
+        <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
+        <form className="Search relative mt-2">
+          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"></i>
+          <input
+            className="w-[30rem] bg-gray-200 pl-9 pt-1 pb-1 rounded-full hover:transform hover:scale-105 transition-transform"
+            type="text"
+            placeholder="Search"
+          />
+        </form>
+      </div>
+      <p className="text-muted-foreground mb-5">
+        Overview of your document verification system
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard
+          title="Total Students"
+          value={totalStudents}
+          icon="fa-solid fa-users"
+          description="Registered students"
+          tone="primary"
+        />
+        <StatCard
+          title="Documents Generated"
+          value={totalDocuments}
+          icon="fa-solid fa-file-lines"
+          description="All time"
+          tone="muted"
+        />
+        <StatCard
+          title="Valid Documents"
+          value={validDocs}
+          icon="fa-solid fa-circle-check"
+          description="Currently active"
+          tone="success"
+        />
+        <StatCard
+          title="Revoked Documents"
+          value={revokedDocs}
+          icon="fa-solid fa-triangle-exclamation"
+          description="Marked invalid"
+          tone="warning"
+        />
+      </div>
+
+      {/* Recent Documents */}
+      <div className="bg-card rounded-xl border border-border shadow-sm">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-semibold text-card-foreground">
+            Recent Documents
+          </h2>
         </div>
-
-        {/* Stats Grid - fully responsive stack on mobile, grid on larger screens */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-8">
-          <StatCard title="Total Students" value={stats.totalStudents} description="Registered students" />
-          <StatCard title="Documents Generated" value={stats.totalDocuments} description="All time" />
-          <StatCard title="Valid Documents" value={stats.validDocuments} description="Currently active" />
-          <StatCard title="Revoked Documents" value={stats.revokedDocuments} description="Marked invalid" />
-        </div>
-
-        {/* Recent Documents Section - mimics DocumentHistory layout */}
-        <Card className="bg-white border-none rounded-md shadow-md overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center gap-4">
-            <div>
-              <h2 className="text-xl font-semibold text-black">Recent Documents</h2>
-              <p className="text-sm text-slate-500">Latest 5 issued documents</p>
-            </div>
-            <Link to="/admin/history">
-              <Button variant="outline" size="sm" className="gap-1">
-                <FileText className="w-4 h-4" />
-                View All
-              </Button>
-            </Link>
-          </div>
-
-          {recentDocs.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-slate-500">No documents found. Generate your first document.</p>
-            </div>
-          ) : (
-            <>
-              {/* Mobile view (cards) */}
-              <div className="grid grid-cols-1 gap-4 p-4 lg:hidden">
-                {recentDocs.map((doc) => (
-                  <Card key={doc._id} className="bg-white p-4 shadow-sm border border-slate-100 rounded-lg">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <p className="text-sm font-bold text-black">{doc.studentId?.fullName || "Unknown"}</p>
-                        <p className="text-xs text-slate-500">{doc.studentId?.admissionNo || "N/A"}</p>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">
+                  Student
+                </th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">
+                  Matric No.
+                </th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">
+                  Type
+                </th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">
+                  Date
+                </th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedDocuments.map((doc) => (
+                <tr
+                  key={doc.id}
+                  className="group border border-transparent border-b-border text-sm transition-all duration-300 ease-out hover:bg-blue-50/80 hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 hover:border-blue-200 hover:rounded-xl cursor-pointer"
+                >
+                  <td className="p-4 font-medium text-card-foreground">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full bg-muted ring-2 ring-white flex items-center justify-center text-muted-foreground transition-all duration-300 group-hover:bg-blue-100 group-hover:text-blue-600 group-hover:scale-110">
+                        <i className="fa-solid fa-user text-sm"></i>
                       </div>
-                      <span
-                        className={`text-[10px] font-black px-2 py-1 rounded-full ${
-                          doc.status === "issued" ? "bg-slate-50 text-[#6699ff]" : "bg-slate-50 text-black"
-                        }`}
-                      >
-                        {doc.status?.toUpperCase() || "UNKNOWN"}
+                      <span className="transition-colors duration-300 group-hover:text-blue-600">
+                        {doc.studentName}
                       </span>
                     </div>
-                    <div className="space-y-2 border-t border-slate-50 pt-2">
-                      <div className="flex justify-between">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold">Type</span>
-                        <span className="text-xs text-[#6699ff] font-bold capitalize">
-                          {doc.documentType?.replace(/_/g, " ") || "N/A"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold">Issued</span>
-                        <span className="text-xs text-slate-500">
-                          {doc.issueDate ? new Date(doc.issueDate).toLocaleDateString() : "Unknown"}
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Desktop view (table) */}
-              <div className="hidden lg:block overflow-x-auto">
-                <table className="w-full min-w-[800px]">
-                  <thead>
-                    <tr className="bg-slate-50/50 border-b border-slate-100">
-                      <th className="text-left py-5 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        Student
-                      </th>
-                      <th className="text-left py-5 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        Matric No.
-                      </th>
-                      <th className="text-left py-5 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        Document Type
-                      </th>
-                      <th className="text-left py-5 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        Date Issued
-                      </th>
-                      <th className="text-left py-5 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {recentDocs.map((doc, idx) => (
-                      <tr
-                        key={doc._id}
-                        className={`transition-all duration-200 hover:bg-[#6699ff]/5 ${
-                          idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  </td>
+                  <td className="p-4 text-muted-foreground transition-colors duration-300 group-hover:text-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <i className="fa-solid fa-id-card text-xs text-blue-500"></i>
+                      {doc.matricNumber}
+                    </span>
+                  </td>
+                  <td className="p-4 text-muted-foreground capitalize transition-colors duration-300 group-hover:text-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <i className="fa-solid fa-file-signature text-xs text-blue-500"></i>
+                      {doc.type.replace("_", " ")}
+                    </span>
+                  </td>
+                  <td className="p-4 text-muted-foreground transition-colors duration-300 group-hover:text-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      <i className="fa-solid fa-calendar-days text-xs text-blue-500"></i>
+                      {new Date(doc.generatedAt).toLocaleDateString()}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium transition-all duration-300 group-hover:scale-105 ${
+                        doc.status === "valid"
+                          ? "bg-success/10 text-success"
+                          : "bg-destructive/10 text-destructive"
+                      }`}
+                    >
+                      <i
+                        className={`fa-solid ${
+                          doc.status === "valid"
+                            ? "fa-circle-check"
+                            : "fa-circle-xmark"
                         }`}
-                      >
-                        <td className="py-4 px-6 font-medium text-sm text-black">
-                          {doc.studentId?.fullName || "Unknown"}
-                        </td>
-                        <td className="py-4 px-6 text-sm text-slate-600">
-                          {doc.studentId?.admissionNo || "-"}
-                        </td>
-                        <td className="py-4 px-6 text-sm text-[#6699ff] font-medium capitalize">
-                          {doc.documentType?.replace(/_/g, " ") || "N/A"}
-                        </td>
-                        <td className="py-4 px-6 text-sm text-slate-500">
-                          {doc.issueDate ? new Date(doc.issueDate).toLocaleDateString() : "Unknown"}
-                        </td>
-                        <td className="py-4 px-6 text-sm font-medium">
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold ${
-                              doc.status === "issued"
-                                ? "bg-green-50 text-green-600"
-                                : "bg-red-50 text-red-600"
-                            }`}
-                          >
-                            {doc.status?.toUpperCase() || "UNKNOWN"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </Card>
+                      ></i>
+                      {doc.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {mockDocuments.length > ROWS_PER_PAGE && (
+          <div className="flex flex-col gap-4 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing {startItem}-{endItem} of {mockDocuments.length} documents
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:pointer-events-none disabled:opacity-50"
+              >
+                <i className="fa-solid fa-chevron-left mr-2 text-xs"></i>
+                Previous
+              </button>
+              {pageNumbers.map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  aria-current={currentPage === page ? "page" : undefined}
+                  onClick={() => setCurrentPage(page)}
+                  className={`h-9 min-w-9 rounded-lg border px-3 text-sm font-semibold transition-colors ${
+                    currentPage === page
+                      ? "border-blue-500 bg-blue-500 text-white shadow-sm"
+                      : "border-border text-muted-foreground hover:bg-blue-50 hover:text-blue-600"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
+                className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:pointer-events-none disabled:opacity-50"
+              >
+                Next
+                <i className="fa-solid fa-chevron-right ml-2 text-xs"></i>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

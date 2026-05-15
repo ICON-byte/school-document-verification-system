@@ -150,19 +150,19 @@ const Landing = () => {
         {/* Solid clouds */}
         <div className="absolute top-[10%] left-[5%] animate-cloud-float-1 opacity-90">
           <div className="relative w-80 h-32">
-            <div className="absolute w-32 h-32 bg-[#1E3A8A] rounded-full left-0 top-0 shadow-2xl" />
-            <div className="absolute w-40 h-40 bg-[#1E3A8A] rounded-full left-20 top-[-10px]" />
-            <div className="absolute w-36 h-36 bg-[#1E3A8A] rounded-full left-44 top-5" />
-            <div className="absolute w-28 h-28 bg-[#1E3A8A] rounded-full left-60 top-16" />
-            <div className="absolute w-full h-20 bg-[#1E3A8A] rounded-full bottom-0 left-0" />
+            <div className="absolute w-32 h-32 bg-[#6699ff] rounded-full left-0 top-0 shadow-2xl" />
+            <div className="absolute w-40 h-40 bg-[#6699ff] rounded-full left-20 top-[-10px]" />
+            <div className="absolute w-36 h-36 bg-[#6699ff] rounded-full left-44 top-5" />
+            <div className="absolute w-28 h-28 bg-[#6699ff] rounded-full left-60 top-16" />
+            <div className="absolute w-full h-20 bg-[#6699ff] rounded-full bottom-0 left-0" />
           </div>
         </div>
         <div className="absolute bottom-[5%] right-[5%] animate-cloud-float-2 opacity-90">
           <div className="relative w-96 h-40">
-            <div className="absolute w-44 h-44 bg-[#1E3A8A] rounded-full left-0 top-0 shadow-2xl" />
-            <div className="absolute w-48 h-48 bg-[#1E3A8A] rounded-full left-32 top-[-20px]" />
-            <div className="absolute w-40 h-40 bg-[#1E3A8A] rounded-full left-64 top-5" />
-            <div className="absolute w-full h-24 bg-[#1E3A8A] rounded-full bottom-0 left-0" />
+            <div className="absolute w-44 h-44 bg-[#6699ff] rounded-full left-0 top-0 shadow-2xl" />
+            <div className="absolute w-48 h-48 bg-[#6699ff] rounded-full left-32 top-[-20px]" />
+            <div className="absolute w-40 h-40 bg-[#6699ff] rounded-full left-64 top-5" />
+            <div className="absolute w-full h-24 bg-[#6699ff] rounded-full bottom-0 left-0" />
           </div>
         </div>
       </div>
