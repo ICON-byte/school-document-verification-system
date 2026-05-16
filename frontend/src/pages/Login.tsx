@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, LockKeyhole, Mail, ArrowLeft } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  ArrowLeft,
+  ShieldCheck,
+  Zap,
+  BarChart3
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
@@ -14,11 +23,11 @@ const Login = () => {
 
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  // Prevent overscroll beyond the top or bottom
   useEffect(() => {
-    const originalStyle = window.getComputedStyle(document.documentElement).overscrollBehavior;
+    const originalStyle = document.documentElement.style.overscrollBehavior;
     document.documentElement.style.overscrollBehavior = "none";
     document.body.style.overscrollBehavior = "none";
+
     return () => {
       document.documentElement.style.overscrollBehavior = originalStyle;
       document.body.style.overscrollBehavior = originalStyle;
@@ -38,9 +47,7 @@ const Login = () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed");
-      }
+      if (!response.ok) throw new Error(data.message || "Login failed");
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
@@ -50,15 +57,11 @@ const Login = () => {
         description: `Logged in as ${data.user.fullName || data.user.email}`,
       });
 
-      if (data.user.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate(data.user.role === "admin" ? "/admin" : "/dashboard");
     } catch (error: any) {
       toast({
         title: "Login failed",
-        description: error.message || "Invalid email or password. Please try again.",
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
     } finally {
@@ -67,121 +70,161 @@ const Login = () => {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-slate-50 font-sans">
-      {/* BACKGROUND ANIMATION ELEMENTS */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-400/20 blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-400/20 blur-[120px] animate-pulse delay-700" />
+    <div className="min-h-screen w-full flex items-center justify-center p-4 
+                    bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 
+                    font-sans relative overflow-hidden">
 
-      {/* Main card */}
-      <div className="relative w-full max-w-5xl flex flex-col md:flex-row bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden min-h-[600px] md:min-h-[650px]">
-        {/* LEFT SIDE - BRANDING & VISUAL */}
-        <div className="hidden md:flex md:w-[45%] bg-[#4a6cf7] relative p-8 lg:p-12 flex-col justify-between items-start text-white overflow-hidden">
-          <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(circle_at_center,_#fff_1px,_transparent_1px)] bg-[length:24px_24px]" />
-          
-          <div className="relative z-10 flex items-center group cursor-default">
-            <span className="font-bold text-2xl tracking-tight uppercase">Admin Portal</span>
+      {/* Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-15%] w-[60%] h-[60%] md:w-[45%] md:h-[45%] 
+                        bg-[#6699ff] rounded-full blur-[120px] opacity-20" />
+        <div className="absolute bottom-[-15%] right-[-15%] w-[65%] h-[65%] md:w-[50%] md:h-[50%] 
+                        bg-indigo-400 rounded-full blur-[140px] opacity-15" />
+      </div>
+
+      {/* Main Card - Better Responsive Max Width */}
+      <div className="relative w-full max-w-md md:max-w-lg lg:max-w-5xl 
+                      flex flex-col lg:flex-row 
+                      bg-white/80 backdrop-blur-2xl border border-white/60 
+                      rounded-3xl shadow-xl overflow-hidden 
+                      min-h-[520px] lg:min-h-[620px] z-10">
+
+        {/* LEFT SIDE - Only visible on large screens */}
+        <div className="hidden lg:flex lg:w-[46%] bg-gradient-to-br from-slate-900 via-slate-950 to-black relative p-10 xl:p-12 flex-col justify-between overflow-hidden">
+
+          {/* Background Elements */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-10 -left-10 w-80 h-80 bg-[#6699ff] rounded-full blur-[120px] animate-pulse" />
+            <div className="absolute bottom-20 -right-10 w-96 h-96 bg-[#6699ff] rounded-full blur-[140px] animate-pulse delay-700" />
           </div>
 
-          <div className="relative z-10 w-full">
-            <div className="mb-8 lg:mb-12">
+          {/* Blue Dots Pattern */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#6699ff_1px,transparent_1px)] bg-[length:40px_40px] opacity-30" />
+
+          <div className="relative z-10 flex flex-col h-full">
+            <div className="text-center mb-10">
+              <h2 className="text-4xl xl:text-5xl font-black tracking-tighter text-white leading-tight">
+                Welcome to the<br />
+                <span className="text-[#6699ff]">Admin Portal</span>
+              </h2>
+              <p className="mt-8 text-slate-400 text-base xl:text-lg max-w-sm mx-auto">
+                Secure platform for managing students records, document history, and document generation.
+              </p>
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="space-y-4 mt-auto">
+              {[
+                { icon: ShieldCheck, title: "Enterprise Security", desc: "Advanced protection for your data" },
+                { icon: Zap, title: "Real-time Management", desc: "Monitor and control from one place" },
+                { icon: BarChart3, title: "Powerful Analytics", desc: "Deep insights and reporting" }
+              ].map((item, i) => (
+                <div key={i} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex gap-4 items-start">
+                  <div className="w-9 h-9 rounded-xl bg-[#6699ff]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <item.icon className="w-5 h-5 text-[#6699ff]" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white">{item.title}</p>
+                    <p className="text-slate-400 text-sm">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative z-10 text-xs text-slate-500 pt-8 border-t border-white/10">
+            © {new Date().getFullYear()} NeoCloud
+          </div>
+        </div>
+
+        {/* RIGHT SIDE - Form */}
+        <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 md:p-12 lg:p-16">
+          <div className="max-w-sm mx-auto w-full">
+            {/* Logo */}
+            <div className="flex justify-center lg:justify-start mb-8 lg:mb-12">
               <img
                 src="/logo-Neo.png"
                 alt="NeoCloud Logo"
-                className="h-15 w-auto drop-shadow-2xl"
+                className="h-12 sm:h-14 lg:h-16 w-auto drop-shadow-xl"
               />
             </div>
-            
-            <h2 className="text-4xl lg:text-5xl font-black leading-tight mb-4 lg:mb-6 tracking-tight">
-              Welcome <br />
-              <span className="text-blue-200">Admin!</span>
-            </h2>
-            <p className="text-blue-50/80 text-base lg:text-lg max-w-xs leading-relaxed font-medium">
-              Access your admin dashboard.<br />
-              Manage users, settings, and system features securely.
-            </p>
-          </div>
 
-          <div className="h-4" />
-        </div>
-
-        {/* RIGHT SIDE - THE FORM */}
-        <div className="flex-1 p-6 md:p-8 lg:p-16 flex flex-col justify-center">
-          <div className="max-w-sm mx-auto w-full">
-            <div className="mb-8 md:mb-10 text-center md:text-left">
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900 mb-2 tracking-tight">Welcome Back</h1>
-              <p className="text-slate-500 font-medium text-sm md:text-base">Please enter your details to sign in.</p>
+            <div className="text-center lg:text-left mb-8">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                Welcome back
+              </h1>
+              <p className="text-slate-600 mt-2 text-sm sm:text-base">
+                Sign in to access your admin dashboard
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
-                <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@school.edu"
                     required
-                    className="w-full h-12 md:h-14 pl-12 pr-5 bg-slate-50 rounded-xl md:rounded-2xl border border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-slate-700 font-medium"
+                    className="w-full h-12 sm:h-14 pl-12 pr-5 bg-white border border-slate-200 rounded-2xl focus:border-[#6699ff] focus:ring-4 focus:ring-[#6699ff]/10 outline-none transition-all"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
-                <div className="relative group">
-                  <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full h-12 md:h-14 pl-12 pr-14 bg-slate-50 rounded-xl md:rounded-2xl border border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-slate-700 font-medium"
+                    className="w-full h-12 sm:h-14 pl-12 pr-14 bg-white border border-slate-200 rounded-2xl focus:border-[#6699ff] focus:ring-4 focus:ring-[#6699ff]/10 outline-none transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 rounded border-slate-300 text-[#4a6cf7] focus:ring-[#4a6cf7]/20 focus:ring-offset-0 accent-[#4a6cf7]" 
-                  />
-                  <span className="text-sm text-slate-500 group-hover:text-slate-700 transition-colors">Remember me</span>
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-[#6699ff]" />
+                  <span className="text-slate-600">Remember me</span>
                 </label>
+                <Link to="/forgot-password" className="text-[#6699ff] hover:underline font-medium">
+                  Forgot password?
+                </Link>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full h-12 md:h-14 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl md:rounded-2xl transition-all duration-300 overflow-hidden shadow-lg shadow-slate-200 active:scale-[0.98]"
+                className="w-full h-12 sm:h-14 bg-[#6699ff] hover:bg-[#5a8ce6] disabled:opacity-75 text-white font-bold rounded-2xl transition-all duration-200 shadow-lg shadow-[#6699ff]/30 flex items-center justify-center text-base"
               >
-                <div className="relative z-10 flex items-center justify-center gap-2">
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <span>SIGN IN</span>
-                  )}
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "SIGN IN"
+                )}
               </button>
             </form>
 
-            {/* Back to Home link */}
-            <div className="mt-6 text-center">
-              <Link
-                to="/"
-                className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors"
-              >
+            <div className="mt-8 text-center">
+              <Link to="/" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-700 transition-colors text-sm">
                 <ArrowLeft className="w-4 h-4" />
                 Back to Home
               </Link>
