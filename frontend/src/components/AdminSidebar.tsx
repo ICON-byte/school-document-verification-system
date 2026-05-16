@@ -19,7 +19,7 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
 
   return (
     <>
-      {/* Mobile backdrop */}
+      {/* Mobile backdrop – only visible on small screens when sidebar is open */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -27,14 +27,14 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
         />
       )}
 
-      {/* Sidebar – different behaviour on desktop vs mobile */}
+      {/* Sidebar – always visible on large screens (≥1024px) */}
       <aside
         className={`
           fixed top-0 left-0 z-50 w-64 bg-slate-50 shadow-xl flex flex-col
           transition-transform duration-300
-          lg:relative lg:translate-x-0 lg:z-auto lg:min-h-screen
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:!relative lg:!translate-x-0 lg:!block lg:z-auto lg:min-h-screen
           h-full lg:h-auto overflow-y-auto
+          ${isOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
         {/* Header */}
@@ -88,7 +88,7 @@ const AdminSidebar = ({ isOpen, onClose }: AdminSidebarProps) => {
               </Link>
             );
           })}
-          {/* Sign Out – directly under Document History */}
+          {/* Sign Out */}
           <Link
             to="/"
             onClick={onClose}

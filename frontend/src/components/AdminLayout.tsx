@@ -8,8 +8,10 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-[#f8faff]">
+    // Remove overflow restrictions that could clip the sidebar
+    <div className="flex min-h-screen bg-[#f8faff] overflow-x-auto">
       <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Main content area – no overflow hidden */}
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="lg:hidden sticky top-0 z-30 bg-white/80 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center">
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="mr-3">

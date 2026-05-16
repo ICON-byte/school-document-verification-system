@@ -8,14 +8,17 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import QRCode from "qrcode";
 
+interface Student {
+  _id: string;
+  fullName: string;
+  admissionNo: string;
+  className: string;
+  photo?: string;
+}
+
 interface Document {
   _id: string;
-  studentId: {
-    _id: string;
-    fullName: string;
-    admissionNo: string;
-    className: string;
-  };
+  studentId: Student;
   documentType: string;
   issueDate: string;
   verificationCode: string;
@@ -29,7 +32,6 @@ const DocumentHistory = () => {
   const [loading, setLoading] = useState(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
@@ -38,9 +40,8 @@ const DocumentHistory = () => {
   const { toast } = useToast();
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  // Prevent overscroll at top/bottom of page (no bounce effect)
   useEffect(() => {
-    const originalStyle = window.getComputedStyle(document.documentElement).overscrollBehavior;
+    const originalStyle = document.documentElement.style.overscrollBehavior;
     document.documentElement.style.overscrollBehavior = "none";
     document.body.style.overscrollBehavior = "none";
     return () => {
@@ -61,14 +62,9 @@ const DocumentHistory = () => {
         setLoading(false);
         return;
       }
-
       const url = `${API_BASE}/documents?page=${page}&limit=${limit}`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed to fetch documents");
-
       const data = await res.json();
       setDocuments(data.documents);
       setTotal(data.total);
@@ -82,20 +78,16 @@ const DocumentHistory = () => {
 
   const handleRevoke = async (id: string) => {
     if (!confirm("Are you sure you want to revoke this document? It will no longer be verifiable.")) return;
-
     setRevokingId(id);
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
-
       const res = await fetch(`${API_BASE}/documents/${id}/revoke`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (!res.ok) throw new Error("Failed to revoke document");
-
-      toast({ title: "Revoked", description: "Document has been revoked successfully." });
+      toast({ title: "Revoked", description: "Document revoked successfully." });
       await fetchDocuments();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -104,16 +96,84 @@ const DocumentHistory = () => {
     }
   };
 
+  const getPhotoSrc = (photo?: string): string | null => {
+    if (!photo || photo.trim() === "") return null;
+    if (photo.startsWith("data:image")) return photo;
+    return `data:image/jpeg;base64,${photo}`;
+  };
+
+  const formatCertificateNumber = (code: string): string => {
+    if (!code) return "No. 0000/0000.0.0/00-0000";
+    const clean = code.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    if (clean.length >= 12) {
+      return `No. ${clean.slice(0, 4)}/${clean.slice(4, 8)}.${clean.slice(8, 10)}/${clean.slice(10, 12)}-${clean.slice(12, 16)}`;
+    }
+    return `No. ${clean}`;
+  };
+
+  const getDocumentTitle = (type: string) => {
+    switch (type) {
+      case "degree": return "BACHELOR'S DEGREE CERTIFICATE";
+      case "diploma": return "DIPLOMA CERTIFICATE";
+      case "transcript": return "ACADEMIC TRANSCRIPT";
+      case "statement": return "STATEMENT OF RESULT";
+      default: return "CERTIFICATE";
+    }
+  };
+
+  const getAwardText = (type: string, field: string) => {
+    switch (type) {
+      case "degree":
+        return `has been conferred the degree of Bachelor of Science in ${field} with all the rights, privileges, and honors thereunto appertaining.`;
+      case "diploma":
+        return `has successfully completed the prescribed program of study and is hereby awarded the Diploma in ${field} in recognition of academic achievement and proficiency.`;
+      case "transcript":
+        return `This official Academic Transcript is issued to certify the academic record and credits earned in ${field}.`;
+      case "statement":
+        return `This Statement of Result is issued to confirm the examination results and academic performance in ${field}.`;
+      default:
+        return `has met all requirements and is hereby awarded this certification in ${field}.`;
+    }
+  };
+
+  // --- UPDATED exportToPDF with fresh student data ---
   const exportToPDF = async (doc: Document) => {
     setDownloadingId(doc._id);
     let container: HTMLDivElement | null = null;
     try {
+      // 1. Always fetch the latest student details from the backend
+      const token = localStorage.getItem("token");
+      let freshStudent: Student | null = null;
+      if (token && doc.studentId?._id) {
+        try {
+          const studentRes = await fetch(`${API_BASE}/students/${doc.studentId._id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (studentRes.ok) {
+            freshStudent = await studentRes.json();
+          } else {
+            console.warn("Could not fetch fresh student data, using cached info.");
+          }
+        } catch (err) {
+          console.warn("Error fetching fresh student data:", err);
+        }
+      }
+
+      // 2. Use fresh student data if available, otherwise fallback to document's cached student
+      const studentName = freshStudent?.fullName ?? doc.studentId?.fullName ?? "Student Name";
+      const admissionNo = freshStudent?.admissionNo ?? doc.studentId?.admissionNo ?? "N/A";
+      const fieldOfStudy = freshStudent?.className ?? doc.studentId?.className ?? "Computer Science";
+      const studentPhoto = freshStudent?.photo ?? doc.studentId?.photo;
+      const photoSrc = getPhotoSrc(studentPhoto);
+
+      // 3. Generate QR code (based on verification code – no change)
       const qrDataUrl = await QRCode.toDataURL(doc.verificationCode, {
-        width: 100,
+        width: 140,
         margin: 1,
-        color: { dark: "#000000", light: "#ffffff" },
+        color: { dark: "#6699FF", light: "#FFFFFF" },
       });
 
+      // 4. Build the certificate HTML using the fresh data
       container = document.createElement("div");
       container.style.position = "absolute";
       container.style.top = "-9999px";
@@ -123,102 +183,118 @@ const DocumentHistory = () => {
       container.style.padding = "20px";
       document.body.appendChild(container);
 
-      const getDocumentTitle = () => {
-        switch (doc.documentType) {
-          case "degree": return "BACHELOR'S DEGREE CERTIFICATE";
-          case "diploma": return "DIPLOMA CERTIFICATE";
-          case "transcript": return "ACADEMIC TRANSCRIPT";
-          case "statement": return "STATEMENT OF RESULT";
-          default: return "OFFICIAL DOCUMENT";
-        }
-      };
-
-      const issueDateFormatted = new Date(doc.issueDate).toLocaleDateString('en-US', {
-        year: 'numeric', month: 'long', day: 'numeric'
+      const title = getDocumentTitle(doc.documentType);
+      const issueDateFormatted = new Date(doc.issueDate).toLocaleDateString("en-US", {
+        year: "numeric", month: "long", day: "numeric",
       });
+      const certNumber = formatCertificateNumber(doc.verificationCode);
+      const awardText = getAwardText(doc.documentType, fieldOfStudy);
 
       container.innerHTML = `
-        <div style="font-family: sans-serif; max-width: 100%; position: relative;">
-          <div style="position: absolute; inset: 0; pointer-events: none; border: 1px solid rgba(102,153,255,0.2); border-radius: 8px;"></div>
-          <div style="position: absolute; top: 0; left: 0; width: 32px; height: 32px; border-top: 2px solid rgba(102,153,255,0.3); border-left: 2px solid rgba(102,153,255,0.3); border-top-left-radius: 6px;"></div>
-          <div style="position: absolute; top: 0; right: 0; width: 32px; height: 32px; border-top: 2px solid rgba(102,153,255,0.3); border-right: 2px solid rgba(102,153,255,0.3); border-top-right-radius: 6px;"></div>
-          <div style="position: absolute; bottom: 0; left: 0; width: 32px; height: 32px; border-bottom: 2px solid rgba(102,153,255,0.3); border-left: 2px solid rgba(102,153,255,0.3); border-bottom-left-radius: 6px;"></div>
-          <div style="position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; border-bottom: 2px solid rgba(102,153,255,0.3); border-right: 2px solid rgba(102,153,255,0.3); border-bottom-right-radius: 6px;"></div>
+        <div class="relative bg-gradient-to-br from-white to-slate-50" style="font-family: sans-serif; max-width: 100%;">
+          <!-- Outer borders -->
+          <div style="position: absolute; inset: 4px; pointer-events: none; border: 2px solid #6699FF; border-radius: 4px;"></div>
+          <div style="position: absolute; inset: 6px; pointer-events: none; border: 1px solid #a0c0ff; border-radius: 4px;"></div>
+          
+          <!-- Corner decorations -->
+          <div style="position: absolute; top: 6px; left: 6px; width: 32px; height: 32px; border-top: 2px solid #6699FF; border-left: 2px solid #6699FF;"></div>
+          <div style="position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border-top: 2px solid #6699FF; border-right: 2px solid #6699FF;"></div>
+          <div style="position: absolute; bottom: 6px; left: 6px; width: 32px; height: 32px; border-bottom: 2px solid #6699FF; border-left: 2px solid #6699FF;"></div>
+          <div style="position: absolute; bottom: 6px; right: 6px; width: 32px; height: 32px; border-bottom: 2px solid #6699FF; border-right: 2px solid #6699FF;"></div>
 
           <div style="padding: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
-              <div>
-                <h1 style="font-size: 24px; font-weight: bold; color: #1e293b;">NEO CLOUD</h1>
-                <p style="font-size: 10px; color: #64748b; text-transform: uppercase;">Academic & Records Office</p>
-              </div>
-              <div style="width: 40px; height: 40px; background: #f8fafc; border-radius: 9999px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(102,153,255,0.2);">
-                <img src="/logo-Neo-2.png" alt="Logo" style="width: 28px; height: 28px; object-fit: contain;" />
-              </div>
-            </div>
-
-            <div style="text-align: center; margin-bottom: 16px;">
-              <h2 style="font-size: 20px; font-weight: bold; color: #1e293b; text-transform: uppercase; letter-spacing: 1px;">${getDocumentTitle()}</h2>
-              <p style="font-size: 10px; color: #64748b; margin-top: 4px;">This certifies that</p>
-            </div>
-
-            <div style="text-align: center; margin-bottom: 16px;">
-              <p style="font-size: 28px; font-family: serif; font-weight: bold; color: #1e293b; border-bottom: 1px solid rgba(102,153,255,0.2); display: inline-block; padding-bottom: 2px; padding-left: 16px; padding-right: 16px;">
-                ${doc.studentId?.fullName || "Student Name"}
-              </p>
-            </div>
-
-            <div style="text-align: center; color: #475569; font-size: 12px; margin-bottom: 24px;">
-              ${doc.documentType === "degree" ? `
-                <p>has successfully completed all requirements for the degree of</p>
-                <p style="font-size: 16px; font-family: serif; font-weight: 600; color: #6699FF;">Bachelor of Science in Computer Science</p>
-                <p>with all rights, privileges, and honors thereunto appertaining.</p>
-              ` : doc.documentType === "diploma" ? `
-                <p>has successfully completed the program of study and is hereby awarded the</p>
-                <p style="font-size: 16px; font-family: serif; font-weight: 600; color: #6699FF;">Diploma in Information Technology</p>
-                <p>in recognition of academic achievement.</p>
-              ` : `
-                <p style="font-size: 14px; font-weight: 500;">Academic Record</p>
-              `}
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 16px;">
-              <div style="font-size: 10px; line-height: 1.3;">
-                <p>Issued: ${issueDateFormatted}</p>
-                <p>Admission: ${doc.studentId?.admissionNo || "N/A"}</p>
-              </div>
-              <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
-                <img src="${qrDataUrl}" style="width: 50px; height: 50px; border: 1px solid #e2e8f0; border-radius: 4px;" />
-                <p style="font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-top: 4px;">Verification Code</p>
-                <p style="font-size: 9px; font-family: monospace; font-weight: bold; color: #6699FF;">${doc.verificationCode}</p>
-              </div>
-            </div>
-
-            <div style="margin-top: 24px; padding-top: 8px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px;">
-              <div style="text-align: center; width: 33%;">
-                <div style="width: 100%; height: 1px; background: #cbd5e1; margin-bottom: 4px;"></div>
-                <p>Registrar's Signature</p>
-              </div>
-              <div style="text-align: center; width: 33%;">
-                <div style="width: 100%; height: 1px; background: #cbd5e1; margin-bottom: 4px;"></div>
-                <p>Academic Dean</p>
-              </div>
-              <div style="text-align: center; width: 33%;">
-                <div style="display: flex; justify-content: center; margin-bottom: 4px;">
-                  <div style="width: 28px; height: 28px; border-radius: 9999px; border: 1px solid rgba(102,153,255,0.4); display: flex; align-items: center; justify-content: center;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"/></svg>
-                  </div>
+            <!-- Header with Logo -->
+            <div style="text-align: center; margin-bottom: 24px;">
+              <div style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 8px;">
+                <div style="height: 1px; width: 48px; background: #6699FF;"></div>
+                <div style="width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;">
+                  <img src="/logo-Neo.png" alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
                 </div>
-                <p>University Seal</p>
+                <div style="height: 1px; width: 48px; background: #6699FF;"></div>
+              </div>
+              <h1 style="font-size: 28px; font-family: serif; font-weight: bold; color: #2c3e50;">Neo Cloud</h1>
+              <p style="font-size: 12px; letter-spacing: 1px; color: #6699FF; font-weight: 500;">ICT SKILLS ANYWHERE</p>
+              <div style="width: 96px; height: 1px; background: #6699FF; margin: 12px auto;"></div>
+            </div>
+
+            <!-- Certificate Title -->
+            <div style="text-align: center; margin-bottom: 16px;">
+              <h2 style="font-size: 20px; font-family: serif; font-weight: bold; color: #2c3e50; text-transform: uppercase; border-bottom: 2px solid #6699FF; display: inline-block; padding-bottom: 4px; padding-left: 16px; padding-right: 16px;">
+                ${title}
+              </h2>
+            </div>
+
+            <!-- Certificate Number -->
+            <div style="text-align: right; margin-bottom: 20px;">
+              <span style="font-size: 12px; font-family: monospace; color: #6699FF; background: #f0f4ff; padding: 4px 12px; border-radius: 4px; border: 1px solid #a0c0ff;">
+                ${certNumber}
+              </span>
+            </div>
+
+            <!-- Main body with photo -->
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 24px; margin-bottom: 24px;">
+              <div style="flex-shrink: 0;">
+                ${photoSrc ? `
+                  <img src="${photoSrc}" alt="Student Photo" style="width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 2px solid #6699FF; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
+                ` : `
+                  <div style="width: 96px; height: 96px; border-radius: 50%; background: #f1f5f9; border: 2px solid #6699FF; display: flex; align-items: center; justify-content: center;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  </div>
+                `}
+              </div>
+              <div style="flex: 1; text-align: left;">
+                <p style="font-size: 14px; color: #64748b; font-style: italic; margin-bottom: 4px;">This Certificate is presented to</p>
+                <p style="font-size: 24px; font-family: serif; font-weight: bold; color: #2c3e50; border-bottom: 1px dotted #6699FF; display: inline-block; padding: 0 16px 4px; margin-bottom: 12px;">
+                  ${studentName}
+                </p>
+                <p style="font-size: 14px; color: #475569; line-height: 1.5;">
+                  ${awardText}
+                </p>
               </div>
             </div>
 
-            <div style="text-align: center; margin-top: 12px; font-size: 8px; color: #94a3b8; text-transform: uppercase;">
-              Electronically verified – check QR code
+            <!-- Details row -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b; border-top: 1px solid #a0c0ff; padding-top: 12px; margin-bottom: 20px;">
+              <div><strong>Admission No:</strong> ${admissionNo}</div>
+              <div><strong>Field of Study:</strong> ${fieldOfStudy}</div>
+              <div><strong>Date of Issue:</strong> ${issueDateFormatted}</div>
+            </div>
+
+            <!-- Signatures and Seal -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px;">
+              <div style="text-align: center; width: 33%;">
+                <div style="width: 100%; height: 1px; background: #2c3e50; margin-bottom: 4px;"></div>
+                <p style="font-size: 10px; font-family: serif;">Registrar's Signature</p>
+                <p style="font-size: 8px; color: #94a3b8;">(Authority)</p>
+              </div>
+              <div style="text-align: center;">
+                <div style="width: 64px; height: 64px; border-radius: 50%; border: 2px solid #6699FF; display: flex; align-items: center; justify-content: center; background: #f0f4ff; margin: 0 auto;">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"/></svg>
+                </div>
+                <p style="font-size: 8px; color: #94a3b8; margin-top: 4px;">Official Seal</p>
+              </div>
+              <div style="text-align: center; width: 33%;">
+                <div style="width: 100%; height: 1px; background: #2c3e50; margin-bottom: 4px;"></div>
+                <p style="font-size: 10px; font-family: serif;">Director's Signature</p>
+                <p style="font-size: 8px; color: #94a3b8;">(Academic Dean)</p>
+              </div>
+            </div>
+
+            <!-- QR Code -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #a0c0ff; padding-top: 12px; margin-top: 24px;">
+              <div style="font-size: 8px; color: #94a3b8;">Electronically Verified Document</div>
+              <div style="text-align: center;">
+                <img src="${qrDataUrl}" style="width: 55px; height: 55px; border: 1px solid #6699FF; border-radius: 4px; padding: 2px; background: white;" />
+                <p style="font-size: 7px; text-transform: uppercase; color: #6699FF; font-weight: bold; margin-top: 4px;">Verification Code</p>
+                <p style="font-size: 8px; font-family: monospace; color: #6699FF; word-break: break-all; max-width: 120px;">${doc.verificationCode}</p>
+              </div>
+              <div style="font-size: 8px; color: #94a3b8;">Issue ID: ${doc._id.slice(-8)}</div>
             </div>
           </div>
         </div>
       `;
 
+      // 5. Convert to PDF
       const canvas = await html2canvas(container, {
         scale: 2,
         backgroundColor: "#ffffff",
@@ -226,23 +302,29 @@ const DocumentHistory = () => {
         useCORS: true,
       });
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const imgWidth = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const scale = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const finalWidth = imgWidth * scale;
+      const finalHeight = imgHeight * scale;
+      const x = (pdfWidth - finalWidth) / 2;
+      const y = (pdfHeight - finalHeight) / 2;
+      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
       pdf.save(`certificate_${doc.documentType}_${doc.verificationCode}.pdf`);
 
-      toast({ title: "Success", description: "Certificate downloaded successfully!" });
+      toast({ title: "Success", description: "Certificate downloaded with latest student data!" });
     } catch (error) {
       console.error("PDF export error:", error);
       toast({ title: "Error", description: "Failed to download certificate", variant: "destructive" });
     } finally {
-      if (container && container.parentNode) {
-        container.parentNode.removeChild(container);
-      }
+      if (container && container.parentNode) container.parentNode.removeChild(container);
       setDownloadingId(null);
     }
   };
+  // --- End of updated exportToPDF ---
 
   const filteredDocuments = documents.filter(
     (doc) =>
@@ -268,38 +350,34 @@ const DocumentHistory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-4 pb-16 md:p-8 md:pb-20 font-sans">
-      <div className="max-w-screen-2xl mx-auto">
-        {/* Header */}
-        <div className="bg-white border-none rounded-md shadow-md p-6 md:p-8 mb-6 md:mb-8">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 lg:p-8 font-sans">
+      <div className="max-w-7xl mx-auto">
+        {/* Header - fully responsive */}
+        <div className="bg-white rounded-xl shadow-sm p-5 sm:p-6 lg:p-8 mb-6 lg:mb-8">
+          <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-black tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">
                 Document History
               </h1>
               <p className="text-sm text-slate-500 mt-1">
                 Complete audit trail of all issued academic documents
               </p>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-              <div className="relative w-full lg:w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   placeholder="Search student, matric, or code..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="h-11 pl-10 pr-4 w-full text-sm rounded-md border-none bg-slate-50 shadow-sm focus-visible:ring-2 focus-visible:ring-[#6699ff]/20"
-                  aria-label="Search documents"
+                  className="h-10 pl-9 pr-3 w-full text-sm rounded-lg border-slate-200 bg-slate-50 focus:ring-2 focus:ring-[#6699ff]/20"
                 />
               </div>
-
               <select
+                title="Items per page"
                 value={limit}
                 onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                className="h-11 px-3 rounded-md border-none bg-white shadow-sm text-sm cursor-pointer"
-                aria-label="Items per page"
-                title="Items per page"
+                className="h-10 px-3 rounded-lg border-slate-200 bg-white shadow-sm text-sm cursor-pointer"
               >
                 <option value={5}>5 per page</option>
                 <option value={10}>10 per page</option>
@@ -311,7 +389,7 @@ const DocumentHistory = () => {
         </div>
 
         {filteredDocuments.length === 0 ? (
-          <Card className="bg-white border-none rounded-md shadow-lg p-12 text-center">
+          <Card className="bg-white rounded-xl shadow-sm p-8 sm:p-12 text-center">
             <p className="text-slate-500">
               {search ? "No matching documents found on this page." : "No documents have been generated yet."}
             </p>
@@ -323,46 +401,46 @@ const DocumentHistory = () => {
           </Card>
         ) : (
           <>
-            {/* Mobile View (Cards) */}
-            <div className="grid grid-cols-1 gap-4 lg:hidden">
+            {/* Mobile & Tablet Card View */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden">
               {filteredDocuments.map((doc) => (
-                <Card key={doc._id} className="bg-white p-5 shadow-md border-none rounded-md">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <p className="text-sm font-bold text-black">{doc.studentId?.fullName || "Unknown"}</p>
+                <Card key={doc._id} className="bg-white p-4 shadow-sm rounded-xl border border-slate-100">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{doc.studentId?.fullName || "Unknown"}</p>
                       <p className="text-xs text-slate-500">{doc.studentId?.admissionNo || "N/A"}</p>
                     </div>
-                    <span className={`text-[10px] font-black px-2 py-1 rounded-full ${
-                      doc.status === "issued" ? "bg-slate-50 text-[#6699ff]" : "bg-slate-50 text-black"
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ml-2 whitespace-nowrap ${
+                      doc.status === "issued" ? "bg-blue-50 text-[#6699ff]" : "bg-slate-100 text-slate-600"
                     }`}>
                       {doc.status?.toUpperCase() || "UNKNOWN"}
                     </span>
                   </div>
-                  <div className="space-y-2 border-t border-slate-50 pt-3">
+                  <div className="space-y-2 border-t border-slate-100 pt-3">
                     <div className="flex justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold">Type</span>
-                      <span className="text-xs text-[#6699ff] font-bold capitalize">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Type</span>
+                      <span className="text-xs text-[#6699ff] font-semibold capitalize">
                         {doc.documentType?.replace(/_/g, " ") || "N/A"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold">Code</span>
-                      <span className="text-xs font-mono font-medium">{doc.verificationCode}</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Code</span>
+                      <span className="text-xs font-mono text-slate-600 truncate max-w-[150px]">{doc.verificationCode}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold">Issued</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Issued</span>
                       <span className="text-xs text-slate-500">
                         {new Date(doc.issueDate).toLocaleDateString("en-GB")}
                       </span>
                     </div>
                     {doc.status === "issued" && (
-                      <div className="mt-3 pt-2 border-t border-slate-100 flex gap-2">
+                      <div className="mt-3 pt-2 border-t border-slate-100 flex flex-col gap-2">
                         <Button
                           variant="default"
                           size="sm"
                           onClick={() => exportToPDF(doc)}
                           disabled={downloadingId === doc._id}
-                          className="flex-1 text-xs h-8 bg-[#6699ff] hover:bg-[#5588ee]"
+                          className="w-full text-xs h-8 bg-[#6699ff] hover:bg-[#5588ee]"
                         >
                           <Download className="w-3 h-3 mr-1" />
                           {downloadingId === doc._id ? "..." : "Download"}
@@ -372,7 +450,7 @@ const DocumentHistory = () => {
                           size="sm"
                           onClick={() => handleRevoke(doc._id)}
                           disabled={revokingId === doc._id}
-                          className="flex-1 text-xs h-8 bg-red-600 hover:bg-red-700"
+                          className="w-full text-xs h-8 bg-red-500 hover:bg-red-600"
                         >
                           <Trash2 className="w-3 h-3 mr-1" />
                           {revokingId === doc._id ? "Revoking..." : "Revoke"}
@@ -385,54 +463,54 @@ const DocumentHistory = () => {
             </div>
 
             {/* Desktop Table */}
-            <Card className="hidden lg:block bg-white border-none rounded-md shadow-lg overflow-hidden">
+            <Card className="hidden lg:block bg-white rounded-xl shadow-sm overflow-hidden border border-slate-100">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1000px]">
+                <table className="w-full">
                   <thead>
-                    <tr className="bg-slate-50/50">
-                      <th className="text-left py-5 px-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Student Information</th>
-                      <th className="text-left py-5 px-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Matric No.</th>
-                      <th className="text-left py-5 px-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Document Type</th>
-                      <th className="text-center py-5 px-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                      <th className="text-right py-5 px-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verification Code</th>
-                      <th className="text-right py-5 px-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date Issued</th>
-                      <th className="text-center py-5 px-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Actions</th>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</th>
+                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Matric No.</th>
+                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Document Type</th>
+                      <th className="text-center py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Verification Code</th>
+                      <th className="text-left py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date Issued</th>
+                      <th className="text-center py-4 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredDocuments.map((doc) => (
-                      <tr key={doc._id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-5 px-8 font-bold text-sm text-black">
+                      <tr key={doc._id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 px-6 font-medium text-sm text-slate-800 whitespace-nowrap">
                           {doc.studentId?.fullName || "Unknown"}
                         </td>
-                        <td className="py-5 px-8 text-sm text-slate-600">
+                        <td className="py-4 px-6 text-sm text-slate-600 whitespace-nowrap">
                           {doc.studentId?.admissionNo || "N/A"}
                         </td>
-                        <td className="py-5 px-8 text-sm text-[#6699ff] font-bold capitalize">
+                        <td className="py-4 px-6 text-sm text-[#6699ff] font-semibold capitalize whitespace-nowrap">
                           {doc.documentType?.replace(/_/g, " ") || "N/A"}
                         </td>
-                        <td className="py-5 px-8 text-center">
-                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${
-                            doc.status === "issued" ? "text-[#6699ff]" : "text-black"
+                        <td className="py-4 px-6 text-center whitespace-nowrap">
+                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                            doc.status === "issued" ? "text-[#6699ff] bg-blue-50" : "text-slate-600 bg-slate-100"
                           }`}>
                             {doc.status?.toUpperCase() || "UNKNOWN"}
                           </span>
                         </td>
-                        <td className="py-5 px-8 text-right font-mono text-sm">
+                        <td className="py-4 px-6 font-mono text-sm text-slate-600 whitespace-nowrap">
                           {doc.verificationCode}
                         </td>
-                        <td className="py-5 px-8 text-right text-sm text-slate-500">
+                        <td className="py-4 px-6 text-sm text-slate-500 whitespace-nowrap">
                           {new Date(doc.issueDate).toLocaleDateString("en-GB")}
                         </td>
-                        <td className="py-5 px-8 text-center">
+                        <td className="py-4 px-6 text-center whitespace-nowrap">
                           {doc.status === "issued" ? (
-                            <div className="flex flex-col items-stretch gap-1.5">
+                            <div className="flex flex-col items-center gap-2">
                               <Button
                                 variant="default"
                                 size="sm"
                                 onClick={() => exportToPDF(doc)}
                                 disabled={downloadingId === doc._id}
-                                className="h-7 px-2 text-[11px] bg-[#6699ff] hover:bg-[#5588ee] whitespace-nowrap"
+                                className="h-7 px-3 text-xs bg-[#6699ff] hover:bg-[#5588ee] w-full"
                               >
                                 <Download className="w-3 h-3 mr-1" />
                                 {downloadingId === doc._id ? "..." : "Download"}
@@ -442,7 +520,7 @@ const DocumentHistory = () => {
                                 size="sm"
                                 onClick={() => handleRevoke(doc._id)}
                                 disabled={revokingId === doc._id}
-                                className="h-7 px-2 text-[11px] bg-red-600 hover:bg-red-700 whitespace-nowrap"
+                                className="h-7 px-3 text-xs bg-red-500 hover:bg-red-600 w-full"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
                                 {revokingId === doc._id ? "Revoking..." : "Revoke"}
@@ -461,9 +539,9 @@ const DocumentHistory = () => {
           </>
         )}
 
-        {/* Pagination Controls */}
+        {/* Pagination */}
         {total > 0 && (
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 px-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8">
             <div className="text-sm text-slate-500">
               Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} documents
             </div>
@@ -473,8 +551,7 @@ const DocumentHistory = () => {
                 size="sm"
                 onClick={() => goToPage(page - 1)}
                 disabled={page === 1}
-                className="h-9 px-3"
-                aria-label="Previous page"
+                className="h-9 px-3 text-sm"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Previous
               </Button>
@@ -486,8 +563,7 @@ const DocumentHistory = () => {
                 size="sm"
                 onClick={() => goToPage(page + 1)}
                 disabled={page === totalPages}
-                className="h-9 px-3"
-                aria-label="Next page"
+                className="h-9 px-3 text-sm"
               >
                 Next <ChevronRight className="w-4 h-4 ml-1" />
               </Button>

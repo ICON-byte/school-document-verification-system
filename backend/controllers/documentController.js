@@ -46,6 +46,7 @@ exports.verifyDocument = async (req, res) => {
 
     await VerificationLog.create({ verificationCode, status: 'success', ipAddress: req.ip });
 
+    // Return student data including photo (Base64 string or empty)
     res.json({
       valid: true,
       document: {
@@ -54,7 +55,11 @@ exports.verifyDocument = async (req, res) => {
         student: {
           name: doc.studentId.fullName,
           admissionNo: doc.studentId.admissionNo,
-          className: doc.studentId.className
+          className: doc.studentId.className,
+          photo: doc.studentId.photo || null,   // ✅ Base64 string from Student model
+          // If you have email/phone in Student model, uncomment these:
+          // email: doc.studentId.email || null,
+          // phone: doc.studentId.phone || null
         }
       }
     });
@@ -87,7 +92,7 @@ exports.revokeDocument = async (req, res) => {
 exports.getDocumentHistory = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const docs = await Document.find({ studentId }).sort({ issueDate: -1 }).populate('studentId', 'fullName admissionNo className');
+    const docs = await Document.find({ studentId }).sort({ issueDate: -1 }).populate('studentId', 'fullName admissionNo className photo');
     res.json(docs);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -106,7 +111,7 @@ exports.getAllDocuments = async (req, res) => {
         .sort({ issueDate: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('studentId', 'fullName admissionNo className'),
+        .populate('studentId', 'fullName admissionNo className photo'),
       Document.countDocuments()
     ]);
 
@@ -128,7 +133,7 @@ exports.getRecentDocuments = async (req, res) => {
     const recentDocs = await Document.find()
       .sort({ issueDate: -1 })
       .limit(limit)
-      .populate('studentId', 'fullName admissionNo className');
+      .populate('studentId', 'fullName admissionNo className photo');
     res.json(recentDocs);
   } catch (error) {
     res.status(500).json({ message: error.message });
