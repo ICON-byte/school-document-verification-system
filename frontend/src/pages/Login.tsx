@@ -1,7 +1,15 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { ShieldCheck, Eye, EyeOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  ArrowLeft,
+  ShieldCheck,
+  Zap,
+  BarChart3
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
@@ -9,133 +17,220 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+  useEffect(() => {
+    const originalStyle = document.documentElement.style.overscrollBehavior;
+    document.documentElement.style.overscrollBehavior = "none";
+    document.body.style.overscrollBehavior = "none";
+
+    return () => {
+      document.documentElement.style.overscrollBehavior = originalStyle;
+      document.body.style.overscrollBehavior = originalStyle;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    setTimeout(() => {
-      if (email === "admin@school.edu" && password === "admin123") {
-        toast({ title: "Welcome back!", description: "Logged in successfully." });
-        navigate("/admin");
-      } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid credentials. Try admin@school.edu / admin123",
-          variant: "destructive",
-        });
-      }
+    try {
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.message || "Login failed");
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      toast({
+        title: "Welcome back",
+        description: `Logged in as ${data.user.fullName || data.user.email}`,
+      });
+
+      navigate(data.user.role === "admin" ? "/admin" : "/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message || "Invalid email or password",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-900 p-4">
-      {/* Glassmorphism Card */}
-      <div className="w-full max-w-md bg-white/15 border-2 border-white/50 rounded-3xl backdrop-blur-3xl bg-white/10 p-8 md:p-10 shadow-2xl">
-        
-        {/* Company Logo - Replace locally */}
-        {/* Put your logo file in the public/ folder and name it logo.png */}
-        <div className="flex justify-center mb-8">
-          <img 
-            src="/public/logo-Neo-2.png" 
-            alt="Company Logo" 
-            className="h-16 w-auto drop-shadow-md"
-          />
+    <div className="min-h-screen w-full flex items-center justify-center p-4 
+                    bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 
+                    font-sans relative overflow-hidden">
+
+      {/* Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-15%] w-[60%] h-[60%] md:w-[45%] md:h-[45%] 
+                        bg-[#6699ff] rounded-full blur-[120px] opacity-20" />
+        <div className="absolute bottom-[-15%] right-[-15%] w-[65%] h-[65%] md:w-[50%] md:h-[50%] 
+                        bg-indigo-400 rounded-full blur-[140px] opacity-15" />
+      </div>
+
+      {/* Main Card - Better Responsive Max Width */}
+      <div className="relative w-full max-w-md md:max-w-lg lg:max-w-5xl 
+                      flex flex-col lg:flex-row 
+                      bg-white/80 backdrop-blur-2xl border border-white/60 
+                      rounded-3xl shadow-xl overflow-hidden 
+                      min-h-[520px] lg:min-h-[620px] z-10">
+
+        {/* LEFT SIDE - Only visible on large screens */}
+        <div className="hidden lg:flex lg:w-[46%] bg-gradient-to-br from-slate-900 via-slate-950 to-black relative p-10 xl:p-12 flex-col justify-between overflow-hidden">
+
+          {/* Background Elements */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-10 -left-10 w-80 h-80 bg-[#6699ff] rounded-full blur-[120px] animate-pulse" />
+            <div className="absolute bottom-20 -right-10 w-96 h-96 bg-[#6699ff] rounded-full blur-[140px] animate-pulse delay-700" />
+          </div>
+
+          {/* Blue Dots Pattern */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#6699ff_1px,transparent_1px)] bg-[length:40px_40px] opacity-30" />
+
+          <div className="relative z-10 flex flex-col h-full">
+            <div className="text-center mb-10">
+              <h2 className="text-4xl xl:text-5xl font-black tracking-tighter text-white leading-tight">
+                Welcome to the<br />
+                <span className="text-[#6699ff]">Admin Portal</span>
+              </h2>
+              <p className="mt-8 text-slate-400 text-base xl:text-lg max-w-sm mx-auto">
+                Secure platform for managing students records, document history, and document generation.
+              </p>
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="space-y-4 mt-auto">
+              {[
+                { icon: ShieldCheck, title: "Enterprise Security", desc: "Advanced protection for your data" },
+                { icon: Zap, title: "Real-time Management", desc: "Monitor and control from one place" },
+                { icon: BarChart3, title: "Powerful Analytics", desc: "Deep insights and reporting" }
+              ].map((item, i) => (
+                <div key={i} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex gap-4 items-start">
+                  <div className="w-9 h-9 rounded-xl bg-[#6699ff]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <item.icon className="w-5 h-5 text-[#6699ff]" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white">{item.title}</p>
+                    <p className="text-slate-400 text-sm">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative z-10 text-xs text-slate-500 pt-8 border-t border-white/10">
+            © {new Date().getFullYear()} NeoCloud
+          </div>
         </div>
 
-        <h2 className="text-3xl font-bold text-white text-center mb-8">
-          Admin Login
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Email */}
-          <div className="relative">
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="peer w-full h-12 bg-transparent border-b-2 border-white text-white text-base px-5 outline-none"
-            />
-            <label
-              htmlFor="email"
-              className="absolute left-5 top-1/2 -translate-y-1/2 text-white text-base transition-all duration-300 peer-focus:top-[-5px] peer-focus:text-sm peer-valid:top-[-5px] peer-valid:text-sm pointer-events-none"
-            >
-              Email
-            </label>
-          </div>
-
-          {/* Password */}
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="peer w-full h-12 bg-transparent border-b-2 border-white text-white text-base px-5 outline-none"
-            />
-            <label
-              htmlFor="password"
-              className="absolute left-5 top-1/2 -translate-y-1/2 text-white text-base transition-all duration-300 peer-focus:top-[-5px] peer-focus:text-sm peer-valid:top-[-5px] peer-valid:text-sm pointer-events-none"
-            >
-              Password
-            </label>
-
-            {/* Password toggle */}
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-5 top-1/2 -translate-y-1/2 text-white hover:text-white/80"
-            >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
-          </div>
-
-          {/* Remember Me + Forgot Password */}
-          <div className="flex justify-between items-center text-white text-sm">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="accent-white"
+        {/* RIGHT SIDE - Form */}
+        <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 md:p-12 lg:p-16">
+          <div className="max-w-sm mx-auto w-full">
+            {/* Logo */}
+            <div className="flex justify-center lg:justify-start mb-8 lg:mb-12">
+              <img
+                src="/logo-Neo.png"
+                alt="NeoCloud Logo"
+                className="h-12 sm:h-14 lg:h-16 w-auto drop-shadow-xl"
               />
-              Remember Me
-            </label>
-            <button
-              type="button"
-              onClick={() => toast({ title: "Forgot Password", description: "Feature coming soon!" })}
-              className="hover:underline"
-            >
-              Forgot Password?
-            </button>
+            </div>
+
+            <div className="text-center lg:text-left mb-8">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                Welcome back
+              </h1>
+              <p className="text-slate-600 mt-2 text-sm sm:text-base">
+                Sign in to access your admin dashboard
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="admin@school.edu"
+                    required
+                    className="w-full h-12 sm:h-14 pl-12 pr-5 bg-white border border-slate-200 rounded-2xl focus:border-[#6699ff] focus:ring-4 focus:ring-[#6699ff]/10 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full h-12 sm:h-14 pl-12 pr-14 bg-white border border-slate-200 rounded-2xl focus:border-[#6699ff] focus:ring-4 focus:ring-[#6699ff]/10 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-[#6699ff]" />
+                  <span className="text-slate-600">Remember me</span>
+                </label>
+                <Link to="/forgot-password" className="text-[#6699ff] hover:underline font-medium">
+                  Forgot password?
+                </Link>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 sm:h-14 bg-[#6699ff] hover:bg-[#5a8ce6] disabled:opacity-75 text-white font-bold rounded-2xl transition-all duration-200 shadow-lg shadow-[#6699ff]/30 flex items-center justify-center text-base"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "SIGN IN"
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 text-center">
+              <Link to="/" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-700 transition-colors text-sm">
+                <ArrowLeft className="w-4 h-4" />
+                Back to Home
+              </Link>
+            </div>
           </div>
-
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 rounded-3xl bg-white text-black hover:bg-white/90 text-lg font-semibold transition-all"
-          >
-            {loading ? "Signing in..." : "Log in"}
-          </Button>
-        </form>
-
-        {/* Back to verification page */}
-        <p className="text-center mt-6">
-          <Link
-            to="/"
-            className="text-white/80 hover:text-white text-sm flex items-center justify-center gap-1"
-          >
-            ← Back to verification page
-          </Link>
-        </p>
+        </div>
       </div>
     </div>
   );
