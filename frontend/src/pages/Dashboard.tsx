@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, FileText } from "lucide-react";
+import { RefreshCw, FileText, Users, CheckCircle, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -140,13 +140,19 @@ const Dashboard = () => {
     }
   };
 
-  const StatCard = ({ title, value, description }: any) => (
+  // Updated StatCard with icon prop
+  const StatCard = ({ title, value, description, icon: Icon, iconColor }: any) => (
     <Card className="bg-white border-0 rounded-md shadow-md hover:shadow-lg transition-all duration-300">
       <CardContent className="p-5">
-        <div className="text-left">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</p>
-          <p className="text-3xl font-bold text-black mt-2">{value}</p>
-          <p className="text-xs text-[#6699ff] mt-1">{description}</p>
+        <div className="flex items-start justify-between">
+          <div className="text-left">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</p>
+            <p className="text-3xl font-bold text-black mt-2">{value}</p>
+            <p className="text-xs text-[#6699ff] mt-1">{description}</p>
+          </div>
+          <div className={`rounded-full p-2 ${iconColor} bg-opacity-10`}>
+            <Icon className={`w-10 h-10 ${iconColor}`} />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -202,12 +208,36 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Stats Grid - fully responsive stack on mobile, grid on larger screens */}
+        {/* Stats Grid with icons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-8">
-          <StatCard title="Total Students" value={stats.totalStudents} description="Registered students" />
-          <StatCard title="Documents Generated" value={stats.totalDocuments} description="All time" />
-          <StatCard title="Valid Documents" value={stats.validDocuments} description="Currently active" />
-          <StatCard title="Revoked Documents" value={stats.revokedDocuments} description="Marked invalid" />
+          <StatCard 
+            title="Total Students" 
+            value={stats.totalStudents} 
+            description="Registered students" 
+            icon={Users} 
+            iconColor="text-blue-600"
+          />
+          <StatCard 
+            title="Documents Generated" 
+            value={stats.totalDocuments} 
+            description="All time" 
+            icon={FileText} 
+            iconColor="text-blue-600"
+          />
+          <StatCard 
+            title="Valid Documents" 
+            value={stats.validDocuments} 
+            description="Currently active" 
+            icon={CheckCircle} 
+            iconColor="text-blue-600"
+          />
+          <StatCard 
+            title="Revoked Documents" 
+            value={stats.revokedDocuments} 
+            description="Marked invalid" 
+            icon={AlertTriangle} 
+            iconColor="text-blue-600"
+          />
         </div>
 
         {/* Recent Documents Section - mimics DocumentHistory layout */}

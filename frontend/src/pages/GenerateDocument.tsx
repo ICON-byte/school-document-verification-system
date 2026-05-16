@@ -23,7 +23,7 @@ interface Student {
   dateOfBirth?: string;
   parentContact?: string;
   isActive: boolean;
-  profileImageUrl?: string;
+  photo?: string;            // Base64 string from backend
 }
 
 interface Document {
@@ -64,6 +64,7 @@ const GenerateDocument = () => {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
   const certificateRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -111,13 +112,13 @@ const GenerateDocument = () => {
     setIsDropdownOpen(false);
     const student = students.find((s) => s._id === studentId);
     if (student) setSearchQuery(student.fullName);
+    setPhotoError(false); // reset error state for new student
   };
 
   // Generate QR code when document is generated
   useEffect(() => {
     const generateQR = async () => {
       if (!generated?.verificationCode) {
-        console.warn("No verification code found in generated document");
         setQrDataUrl(null);
         setQrError(true);
         setQrLoading(false);
@@ -128,7 +129,6 @@ const GenerateDocument = () => {
       setQrError(false);
       setQrDataUrl(null);
       try {
-        console.log("Generating QR for code:", generated.verificationCode);
         const url = await QRCode.toDataURL(generated.verificationCode, {
           width: 140,
           margin: 1,
@@ -138,11 +138,9 @@ const GenerateDocument = () => {
           },
         });
         setQrDataUrl(url);
-        console.log("QR generated successfully, URL length:", url.length);
       } catch (err) {
         console.error("QR generation failed:", err);
         setQrError(true);
-        setQrDataUrl(null);
       } finally {
         setQrLoading(false);
       }
@@ -175,7 +173,6 @@ const GenerateDocument = () => {
       });
       if (!res.ok) throw new Error("Failed to generate document");
       const data = await res.json();
-      console.log("Generated document:", data.document);
       setGenerated(data.document);
       toast({ title: "Success", description: "Document generated successfully!" });
     } catch (error: any) {
@@ -192,7 +189,7 @@ const GenerateDocument = () => {
 
     setExporting(true);
     try {
-      // Wait for the QR image to finish loading (if it exists and has a src)
+      // Wait for QR image
       const qrImg = element.querySelector('img[alt="QR Code"]') as HTMLImageElement;
       if (qrImg && qrImg.src && !qrImg.complete) {
         await new Promise<void>((resolve, reject) => {
@@ -202,7 +199,16 @@ const GenerateDocument = () => {
         });
       }
 
-      // Prepare certificate element for capture
+      // Wait for student photo (if present)
+      const photoImg = element.querySelector('img[alt="Student Photo"]') as HTMLImageElement;
+      if (photoImg && photoImg.src && !photoImg.complete) {
+        await new Promise<void>((resolve) => {
+          photoImg.onload = () => resolve();
+          photoImg.onerror = () => resolve(); // continue even if photo fails
+        });
+      }
+
+      // Adjust styles for capture
       const originalOverflow = element.style.overflow;
       const originalMaxWidth = element.style.maxWidth;
       const originalHeight = element.style.height;
@@ -213,7 +219,6 @@ const GenerateDocument = () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // Capture with html2canvas
       const canvas = await html2canvas(element, {
         scale: 3,
         backgroundColor: "#ffffff",
@@ -235,12 +240,11 @@ const GenerateDocument = () => {
         },
       });
 
-      // Restore original styles
+      // Restore styles
       element.style.overflow = originalOverflow;
       element.style.maxWidth = originalMaxWidth;
       element.style.height = originalHeight;
 
-      // Generate PDF
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
         orientation: "portrait",
@@ -305,6 +309,16 @@ const GenerateDocument = () => {
         return `has met all requirements and is hereby awarded this certification in ${fieldOfStudy}.`;
     }
   };
+
+  // Helper to get image source from Base64 photo
+  const getPhotoSrc = (photo?: string): string | null => {
+    if (!photo || photo.trim() === "") return null;
+    // If already a data URL, use as is; otherwise assume raw base64
+    if (photo.startsWith("data:image")) return photo;
+    return `data:image/jpeg;base64,${photo}`;
+  };
+
+  const photoSrc = getPhotoSrc(selectedStudentObj?.photo);
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 pb-20 md:p-8 md:pb-20 font-sans">
@@ -464,15 +478,16 @@ const GenerateDocument = () => {
                           </p>
                         </div>
 
-                        {/* Main Body with Profile Picture */}
+                        {/* Main Body with Student Photo (Base64) */}
                         <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                           <div className="flex-shrink-0">
-                            {selectedStudentObj?.profileImageUrl ? (
+                            {photoSrc && !photoError ? (
                               <img
-                                src={selectedStudentObj.profileImageUrl}
-                                alt="Profile"
+                                src={photoSrc}
+                                alt="Student Photo"
                                 className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border-2 border-[#6699FF] shadow-md"
                                 crossOrigin="anonymous"
+                                onError={() => setPhotoError(true)}
                               />
                             ) : (
                               <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-slate-100 border-2 border-[#6699FF] flex items-center justify-center shadow-md">
@@ -525,7 +540,7 @@ const GenerateDocument = () => {
                           </div>
                         </div>
 
-                        {/* QR Code Section with Loading/Error States */}
+                        {/* QR Code Section */}
                         <div className="mt-6 flex justify-between items-end border-t border-[#a0c0ff] pt-3">
                           <div className="text-left">
                             <p className="text-[10px] text-slate-400">Electronically Verified Document</p>

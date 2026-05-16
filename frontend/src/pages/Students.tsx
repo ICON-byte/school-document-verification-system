@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { Search, Plus, MoreHorizontal, Filter, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Plus, MoreHorizontal, Filter, X, Upload, User } from "lucide-react";
+// Removed ImageIcon, added User
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,7 @@ interface Student {
   fullName: string;
   department: string;
   createdAt: string;
+  photo?: string; // Base64 image string
 }
 
 const departmentOptions = [
@@ -54,6 +56,9 @@ const departmentOptions = [
 type SortField = "fullName" | "admissionNo" | "department";
 type SortOrder = "asc" | "desc";
 
+const MAX_IMAGE_SIZE_KB = 15; // 15KB limit
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+
 const Students = () => {
   const [search, setSearch] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
@@ -68,13 +73,17 @@ const Students = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
 
   const [formData, setFormData] = useState({
     admissionNo: "",
     fullName: "",
     department: "",
+    photo: "", // Base64 string
   });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -107,6 +116,7 @@ const Students = () => {
       const mapped = data.map((s: any) => ({
         ...s,
         department: s.className || "",
+        photo: s.photo || "",
       }));
       setStudents(mapped);
     } catch (error: any) {
@@ -124,6 +134,46 @@ const Students = () => {
     const trimmed = name.trim();
     const words = trimmed.split(/\s+/);
     return words.length >= 2;
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setImageError("Only JPEG, PNG, GIF, or WebP images are allowed.");
+      setImagePreview(null);
+      setFormData({ ...formData, photo: "" });
+      return;
+    }
+
+    // Validate size (in KB)
+    const fileSizeKB = file.size / 1024;
+    if (fileSizeKB > MAX_IMAGE_SIZE_KB) {
+      setImageError(`Image size must be less than ${MAX_IMAGE_SIZE_KB}KB.`);
+      setImagePreview(null);
+      setFormData({ ...formData, photo: "" });
+      return;
+    }
+
+    setImageError(null);
+
+    // Convert to Base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setImagePreview(base64String);
+      setFormData({ ...formData, photo: base64String });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setImagePreview(null);
+    setFormData({ ...formData, photo: "" });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setImageError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,6 +205,7 @@ const Students = () => {
         admissionNo: formData.admissionNo,
         fullName: formData.fullName.trim(),
         className: formData.department,
+        photo: formData.photo, // send Base64 string
       };
 
       const url = editingStudent
@@ -177,7 +228,11 @@ const Students = () => {
       }
 
       const savedStudent = await res.json();
-      const studentWithDept = { ...savedStudent, department: savedStudent.className };
+      const studentWithDept = {
+        ...savedStudent,
+        department: savedStudent.className || savedStudent.department,
+        photo: savedStudent.photo || formData.photo,
+      };
 
       if (editingStudent) {
         setStudents(students.map((s) => (s._id === savedStudent._id ? studentWithDept : s)));
@@ -222,8 +277,12 @@ const Students = () => {
       admissionNo: "",
       fullName: "",
       department: "",
+      photo: "",
     });
+    setImagePreview(null);
+    setImageError(null);
     setEditingStudent(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const startEdit = (student: Student) => {
@@ -232,7 +291,10 @@ const Students = () => {
       admissionNo: student.admissionNo,
       fullName: student.fullName,
       department: student.department,
+      photo: student.photo || "",
     });
+    setImagePreview(student.photo || null);
+    setImageError(null);
     setDialogOpen(true);
   };
 
@@ -382,6 +444,49 @@ const Students = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Image Upload Section - Updated for 15KB limit */}
+                <div className="space-y-2">
+                  <Label>Student Photo (optional)</Label>
+                  <div className="flex items-center gap-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Image
+                    </Button>
+                    {imagePreview && (
+                      <Button type="button" variant="ghost" onClick={removeImage} className="text-red-500">
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <input
+                    title="Image"
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  {imageError && <p className="text-xs text-red-500">{imageError}</p>}
+                  <p className="text-xs text-slate-400">
+                    Max size {MAX_IMAGE_SIZE_KB}KB. Supported: JPEG, PNG, GIF, WebP
+                  </p>
+                  {imagePreview && (
+                    <div className="mt-2">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="h-20 w-20 rounded-full object-cover border border-slate-200"
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <Button type="submit" className="w-full h-11 rounded-md bg-[#6699ff] hover:bg-[#5588ee] shadow-sm">
                   {editingStudent ? "Update Student" : "Add Student"}
                 </Button>
@@ -390,7 +495,7 @@ const Students = () => {
           </Dialog>
         </div>
 
-        {/* Filter Bar */}
+        {/* Filter Bar (unchanged) */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -509,14 +614,27 @@ const Students = () => {
         </Card>
       ) : (
         <>
-          {/* Mobile card view (visible on small screens, hidden on lg) */}
+          {/* Mobile card view */}
           <div className="grid grid-cols-1 gap-4 lg:hidden">
             {paginatedStudents.map((student) => (
               <Card key={student._id} className="bg-white p-4 shadow-md border-none rounded-md">
                 <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <p className="text-sm font-bold text-black">{student.fullName}</p>
-                    <p className="text-xs text-slate-500">{student.admissionNo}</p>
+                  <div className="flex items-center gap-3">
+                    {student.photo ? (
+                      <img
+                        src={student.photo}
+                        alt={student.fullName}
+                        className="h-10 w-10 rounded-full object-cover border"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+                        <User className="h-5 w-5 text-slate-400" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-bold text-black">{student.fullName}</p>
+                      <p className="text-xs text-slate-500">{student.admissionNo}</p>
+                    </div>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -542,12 +660,13 @@ const Students = () => {
             ))}
           </div>
 
-          {/* Desktop table view (hidden on mobile, visible on lg and up) */}
+          {/* Desktop table view */}
           <Card className="hidden lg:block bg-white border-none rounded-md shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] font-sans">
                 <thead>
                   <tr className="bg-slate-50/50">
+                    <th className="text-left p-4 md:p-5 text-sm font-semibold text-slate-600">Photo</th>
                     <th className="text-left p-4 md:p-5 text-sm font-semibold text-slate-600">Name</th>
                     <th className="text-left p-4 md:p-5 text-sm font-semibold text-slate-600">Reg. No.</th>
                     <th className="text-left p-4 md:p-5 text-sm font-semibold text-slate-600">Department</th>
@@ -557,6 +676,19 @@ const Students = () => {
                 <tbody className="divide-y divide-slate-50">
                   {paginatedStudents.map((student) => (
                     <tr key={student._id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-4 md:p-5">
+                        {student.photo ? (
+                          <img
+                            src={student.photo}
+                            alt={student.fullName}
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center">
+                            <User className="h-4 w-4 text-slate-400" />
+                          </div>
+                        )}
+                      </td>
                       <td className="p-4 md:p-5 font-medium text-black">{student.fullName}</td>
                       <td className="p-4 md:p-5 text-black">{student.admissionNo}</td>
                       <td className="p-4 md:p-5 text-slate-700">{student.department}</td>
