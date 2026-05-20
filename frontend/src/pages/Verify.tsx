@@ -58,11 +58,11 @@ const Verify = () => {
       setResult(data);
     } catch (error: any) {
       setResult({ valid: false, message: error.message });
-      toast({
-        title: "Verification error",
-        description: error.message,
-        variant: "destructive",
-      });
+      // toast({
+      //   title: "Verification error",
+      //   description: error.message,
+      //   variant: "destructive",
+      // });
     } finally {
       setLoading(false);
     }
