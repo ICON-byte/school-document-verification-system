@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Plus, MoreHorizontal, Filter, X, Upload, User } from "lucide-react";
+import { Search, Plus, MoreHorizontal, Filter, X, Upload, User, Users, Building2, ListFilter } from "lucide-react";
 // Removed ImageIcon, added User
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -358,22 +358,43 @@ const Students = () => {
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-sans">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-        <Card className="border-none rounded-md shadow-sm bg-white">
-          <CardContent className="p-4 md:p-6">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Total Students</p>
-            <p className="text-3xl md:text-4xl font-bold text-black mt-2 md:mt-3">{students.length}</p>
+        <Card className="border-none rounded-md shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between">
+              <div className="text-left">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Students</p>
+                <p className="text-3xl md:text-4xl font-bold text-black mt-2 md:mt-3">{students.length}</p>
+              </div>
+              <div className="rounded-full p-2 text-blue-600 bg-opacity-10">
+                <Users className="w-10 h-10 text-blue-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-none rounded-md shadow-sm bg-white">
-          <CardContent className="p-4 md:p-6">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Departments</p>
-            <p className="text-3xl md:text-4xl font-bold text-black mt-2 md:mt-3">{departmentOptions.length - 1}</p>
+        <Card className="border-none rounded-md shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between">
+              <div className="text-left">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Departments</p>
+                <p className="text-3xl md:text-4xl font-bold text-black mt-2 md:mt-3">{departmentOptions.length - 1}</p>
+              </div>
+              <div className="rounded-full p-2 text-blue-600 bg-opacity-10">
+                <Building2 className="w-10 h-10 text-blue-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card className="border-none rounded-md shadow-sm bg-white">
-          <CardContent className="p-4 md:p-6">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Filtered Results</p>
-            <p className="text-3xl md:text-4xl font-bold text-black mt-2 md:mt-3">{totalFiltered}</p>
+        <Card className="border-none rounded-md shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between">
+              <div className="text-left">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Filtered Results</p>
+                <p className="text-3xl md:text-4xl font-bold text-black mt-2 md:mt-3">{totalFiltered}</p>
+              </div>
+              <div className="rounded-full p-2 text-blue-600 bg-opacity-10">
+                <ListFilter className="w-10 h-10 text-blue-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
