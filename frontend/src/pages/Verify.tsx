@@ -161,7 +161,7 @@ const Verify = () => {
             <Button 
               type="submit" 
               disabled={loading}
-              className="h-12 px-8 bg-[#6699ff] hover:bg-[#5588ee] text-white font-semibold shadow-sm transition-all"
+              className="h-12 px-8 bg-[#1E3A8A] hover:bg-[#5588ee] text-white font-semibold shadow-sm transition-all"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
               {loading ? "Verifying..." : "Verify"}

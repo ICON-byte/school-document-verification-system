@@ -189,83 +189,46 @@ const GenerateDocument = () => {
 
     setExporting(true);
     try {
-      // Wait for QR image
-      const qrImg = element.querySelector('img[alt="QR Code"]') as HTMLImageElement;
-      if (qrImg && qrImg.src && !qrImg.complete) {
-        await new Promise<void>((resolve, reject) => {
-          qrImg.onload = () => resolve();
-          qrImg.onerror = () => reject(new Error("QR image failed to load"));
-          if (qrImg.complete) resolve();
+      // 1. Wait for images to load
+      const images = Array.from(element.querySelectorAll('img'));
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
         });
-      }
+      }));
 
-      // Wait for student photo (if present)
-      const photoImg = element.querySelector('img[alt="Student Photo"]') as HTMLImageElement;
-      if (photoImg && photoImg.src && !photoImg.complete) {
-        await new Promise<void>((resolve) => {
-          photoImg.onload = () => resolve();
-          photoImg.onerror = () => resolve(); // continue even if photo fails
-        });
-      }
-
-      // Adjust styles for capture
-      const originalOverflow = element.style.overflow;
-      const originalMaxWidth = element.style.maxWidth;
-      const originalHeight = element.style.height;
-
-      element.style.overflow = "visible";
-      element.style.maxWidth = "none";
-      element.style.height = "auto";
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
+      // 2. Capture the canvas
+      // We use a specific width to ensure the internal layout doesn't "flex" 
+      // differently than what you see on screen.
       const canvas = await html2canvas(element, {
-        scale: 3,
+        scale: 4, // Higher scale = sharper text in PDF
+        useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        useCORS: true,
-        allowTaint: false,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
-        onclone: (clonedDoc) => {
-          const clonedEl = clonedDoc.getElementById("certificate-preview");
-          if (clonedEl) {
-            clonedEl.style.overflow = "visible";
-            clonedEl.style.height = "auto";
-          }
-          const images = clonedDoc.getElementsByTagName("img");
-          for (let i = 0; i < images.length; i++) {
-            images[i].crossOrigin = "anonymous";
-          }
-        },
       });
 
-      // Restore styles
-      element.style.overflow = originalOverflow;
-      element.style.maxWidth = originalMaxWidth;
-      element.style.height = originalHeight;
-
       const imgData = canvas.toDataURL("image/png");
+      
+      // 3. Initialize PDF in A4
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
 
-      const pdfWidth = 210;
-      const pdfHeight = 297;
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
+      // A4 dimensions in mm
+      const pageWidth = 210;
+      const pageHeight = 297;
 
-      const scale = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const finalWidth = imgWidth * scale;
-      const finalHeight = imgHeight * scale;
-      const x = (pdfWidth - finalWidth) / 2;
-      const y = (pdfHeight - finalHeight) / 2;
+      // 4. Force the image to fit the FULL page width
+      // This ignores the "half page" scaling and stretches the capture to fit 210mm
+      pdf.addImage(imgData, "PNG", 0, 0, pageWidth, pageHeight, undefined, 'FAST');
 
-      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
-      pdf.save(`certificate_${generated?.documentType}_${new Date().toISOString().split("T")[0]}.pdf`);
-      toast({ title: "Success", description: "PDF downloaded successfully!" });
+      pdf.save(`Certificate_${selectedStudentObj?.fullName.replace(/\s+/g, '_')}.pdf`);
+      
+      toast({ title: "Success", description: "A4 Certificate generated!" });
     } catch (error) {
       console.error("PDF export error:", error);
       toast({ title: "Error", description: "Failed to generate PDF", variant: "destructive" });
