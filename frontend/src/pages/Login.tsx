@@ -5,10 +5,7 @@ import {
   EyeOff,
   LockKeyhole,
   Mail,
-  ArrowLeft,
-  ShieldCheck,
-  Zap,
-  BarChart3
+  ArrowLeft
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -82,74 +79,25 @@ const Login = () => {
                         bg-indigo-400 rounded-full blur-[140px] opacity-15" />
       </div>
 
-      {/* Main Card - Better Responsive Max Width */}
-      <div className="relative w-full max-w-md md:max-w-lg lg:max-w-5xl 
-                      flex flex-col lg:flex-row 
+      {/* Main Card - Simplified to single column */}
+      <div className="relative w-full max-w-md
                       bg-white/80 backdrop-blur-2xl border border-white/60 
                       rounded-3xl shadow-xl overflow-hidden 
-                      min-h-[520px] lg:min-h-[620px] z-10">
+                      py-8 z-10">
 
-        {/* LEFT SIDE - Only visible on large screens */}
-        <div className="hidden lg:flex lg:w-[46%] bg-gradient-to-br from-slate-900 via-slate-950 to-black relative p-10 xl:p-12 flex-col justify-between overflow-hidden">
-
-          {/* Background Elements */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-10 -left-10 w-80 h-80 bg-[#6699ff] rounded-full blur-[120px] animate-pulse" />
-            <div className="absolute bottom-20 -right-10 w-96 h-96 bg-[#6699ff] rounded-full blur-[140px] animate-pulse delay-700" />
-          </div>
-
-          {/* Blue Dots Pattern */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#6699ff_1px,transparent_1px)] bg-[length:40px_40px] opacity-30" />
-
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="text-center mb-10">
-              <h2 className="text-4xl xl:text-5xl font-black tracking-tighter text-white leading-tight">
-                Welcome to the<br />
-                <span className="text-[#6699ff]">Admin Portal</span>
-              </h2>
-              <p className="mt-8 text-slate-400 text-base xl:text-lg max-w-sm mx-auto">
-                Secure platform for managing students records, document history, and document generation.
-              </p>
-            </div>
-
-            {/* Feature Highlights */}
-            <div className="space-y-4 mt-auto">
-              {[
-                { icon: ShieldCheck, title: "Enterprise Security", desc: "Advanced protection for your data" },
-                { icon: Zap, title: "Real-time Management", desc: "Monitor and control from one place" },
-                { icon: BarChart3, title: "Powerful Analytics", desc: "Deep insights and reporting" }
-              ].map((item, i) => (
-                <div key={i} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex gap-4 items-start">
-                  <div className="w-9 h-9 rounded-xl bg-[#6699ff]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <item.icon className="w-5 h-5 text-[#6699ff]" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-white">{item.title}</p>
-                    <p className="text-slate-400 text-sm">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative z-10 text-xs text-slate-500 pt-8 border-t border-white/10">
-            © {new Date().getFullYear()} NeoCloud
-          </div>
-        </div>
-
-        {/* RIGHT SIDE - Form */}
-        <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 md:p-12 lg:p-16">
-          <div className="max-w-sm mx-auto w-full">
+        {/* Form Container */}
+        <div className="flex flex-col justify-center px-6 sm:px-10">
+          <div className="w-full">
             {/* Logo */}
-            <div className="flex justify-center lg:justify-start mb-8 lg:mb-12">
+            <div className="flex justify-center mb-8">
               <img
                 src="/logo-Neo.png"
                 alt="NeoCloud Logo"
-                className="h-12 sm:h-14 lg:h-16 w-auto drop-shadow-xl"
+                className="h-14 w-auto drop-shadow-xl"
               />
             </div>
 
-            <div className="text-center lg:text-left mb-8">
+            <div className="text-center mb-8">
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Welcome back
               </h1>
@@ -230,6 +178,11 @@ const Login = () => {
               </Link>
             </div>
           </div>
+        </div>
+        
+        {/* Footer Copyright */}
+        <div className="mt-6 text-center text-[10px] text-slate-400 uppercase tracking-widest">
+          © {new Date().getFullYear()} NeoCloud
         </div>
       </div>
     </div>
