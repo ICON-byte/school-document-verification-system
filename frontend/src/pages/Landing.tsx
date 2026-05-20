@@ -379,15 +379,20 @@ const Landing = () => {
         </section>
 
         {/* Testimonials */}
-        <section id="testimonials" ref={testimonialsRef} className="py-20">
+        <section id="testimonials" ref={testimonialsRef} className="py-12">
           <div className="container mx-auto px-6">
-            <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">Trusted by Businesses & Institutions</h2>
+            <h2 className="text-6xl font-bold text-center mb-6 text-gray-900 h-40 gap-3 flex items-center justify-center">
+              <img
+                src="/google img.png"
+                className="w-118 h-20 mx-auto mt-0 mb-0 ml-5 mr-5 top-50" 
+                alt="google review" />
+                Reviews</h2>
             <div className="grid md:grid-cols-2 gap-8">
               {[
-                { name: "Dr. Sarah Johnson", role: "Registrar, State University", text: "The document verification system eliminated fraud completely. Seamless integration and excellent support." },
-                { name: "Michael Okafor", role: "CEO, EduTech Africa", text: "Neo Cloud's hosting and school management software have transformed our operations." },
-                { name: "Prof. James Liu", role: "Dean of Academics, Asia Pacific College", text: "Tamper-proof transcripts saved us from fake credentials. A must-have for any institution." },
-                { name: "Elena Vesna", role: "Director of Admissions, European University", text: "The verification dashboard gives us full visibility and peace of mind." }
+                { name: "Temi Ojo", role: "7 Months ago", text: "Neocloud if the best place to learn any tech skill of your choice. I would highly recommend to anybody." },
+                { name: "Simon Timothy", role: "7 Months ago", text: "NeoCloud Technologies provides the perfect blend of learning and real-world application. I’d highly recommend this internship to students looking to level up their design skills and work with a talented team." },
+                { name: "Chiamaka Okolo", role: "7 Months ago", text: "I studied history as my first degree, with no prior knowledge at all, but after my training here, based on merit, I was graciously offered an internship with them." },
+                { name: "Obinna Uzor", role: "6 Months ago", text: "Neo Cloud is a place to be if you wish to build a career in Tech or want to stay updated with happenings in the Tech industry. A wonderful family with great Tutors." }
               ].map((t, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 30 }} animate={testimonialsInView ? { opacity: 1, y: 0 } : {}} transition={{ delay: i * 0.1 }} className="bg-white rounded-2xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-all">
                   <div className="flex items-center gap-4 mb-4">
