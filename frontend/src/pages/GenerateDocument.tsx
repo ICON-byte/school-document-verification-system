@@ -23,7 +23,7 @@ interface Student {
   dateOfBirth?: string;
   parentContact?: string;
   isActive: boolean;
-  profileImageUrl?: string;
+  photo?: string;            // Base64 string from backend
 }
 
 interface Document {
@@ -64,12 +64,11 @@ const GenerateDocument = () => {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
   const certificateRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
-  const selectedStudentObj = students.find((s) => s._id === selectedStudent);
 
   useEffect(() => {
     document.documentElement.style.overscrollBehavior = "none";
@@ -87,7 +86,10 @@ const GenerateDocument = () => {
   const fetchStudents = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      if (!token) {
+        toast({ title: "Not authenticated", variant: "destructive" });
+        return;
+      }
       const res = await fetch(`${API_BASE}/students`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -110,24 +112,34 @@ const GenerateDocument = () => {
     setIsDropdownOpen(false);
     const student = students.find((s) => s._id === studentId);
     if (student) setSearchQuery(student.fullName);
+    setPhotoError(false); // reset error state for new student
   };
 
+  // Generate QR code when document is generated
   useEffect(() => {
     const generateQR = async () => {
       if (!generated?.verificationCode) {
         setQrDataUrl(null);
+        setQrError(true);
+        setQrLoading(false);
         return;
       }
+
       setQrLoading(true);
       setQrError(false);
+      setQrDataUrl(null);
       try {
         const url = await QRCode.toDataURL(generated.verificationCode, {
           width: 140,
           margin: 1,
-          color: { dark: "#6699FF", light: "#FFFFFF" },
+          color: {
+            dark: "#6699FF",
+            light: "#FFFFFF",
+          },
         });
         setQrDataUrl(url);
       } catch (err) {
+        console.error("QR generation failed:", err);
         setQrError(true);
       } finally {
         setQrLoading(false);
@@ -143,6 +155,7 @@ const GenerateDocument = () => {
     }
     setLoading(true);
     setQrDataUrl(null);
+    setQrError(false);
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
@@ -163,6 +176,7 @@ const GenerateDocument = () => {
       setGenerated(data.document);
       toast({ title: "Success", description: "Document generated successfully!" });
     } catch (error: any) {
+      console.error("Generation error:", error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -175,54 +189,46 @@ const GenerateDocument = () => {
 
     setExporting(true);
     try {
-      // Step 1: Wait for QR image
-      const qrImg = element.querySelector('img[alt="QR Code"]') as HTMLImageElement;
-      if (qrImg && !qrImg.complete) {
-        await new Promise((resolve) => {
-          qrImg.onload = resolve;
-          qrImg.onerror = resolve;
+      // 1. Wait for images to load
+      const images = Array.from(element.querySelectorAll('img'));
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
         });
-      }
+      }));
 
-      // Step 2: Use html2canvas with specific settings to lock the view
+      // 2. Capture the canvas
+      // We use a specific width to ensure the internal layout doesn't "flex" 
+      // differently than what you see on screen.
       const canvas = await html2canvas(element, {
-        scale: 3, // High quality
+        scale: 4, // Higher scale = sharper text in PDF
         useCORS: true,
-        allowTaint: false,
         backgroundColor: "#ffffff",
         logging: false,
-        // This is key: ensure the capture happens at the current element's width
-        width: element.offsetWidth,
-        height: element.offsetHeight,
-        onclone: (clonedDoc) => {
-          const clonedEl = clonedDoc.getElementById("certificate-preview");
-          if (clonedEl) {
-            clonedEl.style.overflow = "visible";
-            clonedEl.style.height = "auto";
-            clonedEl.style.transform = "none"; // Remove any preview scaling
-          }
-        },
       });
 
-      const imgData = canvas.toDataURL("image/png", 1.0);
+      const imgData = canvas.toDataURL("image/png");
+      
+      // 3. Initialize PDF in A4
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      // Calculate height to maintain aspect ratio
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      // A4 dimensions in mm
+      const pageWidth = 210;
+      const pageHeight = 297;
 
-      // Add image centered vertically
-      pdf.addImage(imgData, "PNG", 0, (pdfHeight - imgHeight) / 2, pdfWidth, imgHeight);
-      pdf.save(`certificate_${generated?.documentType}_${new Date().toISOString().split("T")[0]}.pdf`);
+      // 4. Force the image to fit the FULL page width
+      // This ignores the "half page" scaling and stretches the capture to fit 210mm
+      pdf.addImage(imgData, "PNG", 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+
+      pdf.save(`Certificate_${selectedStudentObj?.fullName.replace(/\s+/g, '_')}.pdf`);
       
-      toast({ title: "Success", description: "PDF downloaded successfully!" });
+      toast({ title: "Success", description: "A4 Certificate generated!" });
     } catch (error) {
       console.error("PDF export error:", error);
       toast({ title: "Error", description: "Failed to generate PDF", variant: "destructive" });
@@ -231,6 +237,7 @@ const GenerateDocument = () => {
     }
   };
 
+  const selectedStudentObj = students.find((s) => s._id === selectedStudent);
   const fieldOfStudy = selectedStudentObj?.className || generated?.content?.className || "Computer Science";
 
   const displayIssueDate = generated?.issueDate
@@ -266,6 +273,16 @@ const GenerateDocument = () => {
     }
   };
 
+  // Helper to get image source from Base64 photo
+  const getPhotoSrc = (photo?: string): string | null => {
+    if (!photo || photo.trim() === "") return null;
+    // If already a data URL, use as is; otherwise assume raw base64
+    if (photo.startsWith("data:image")) return photo;
+    return `data:image/jpeg;base64,${photo}`;
+  };
+
+  const photoSrc = getPhotoSrc(selectedStudentObj?.photo);
+
   return (
     <div className="min-h-screen bg-slate-100 p-4 pb-20 md:p-8 md:pb-20 font-sans">
       <div className="max-w-7xl mx-auto">
@@ -276,7 +293,7 @@ const GenerateDocument = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 md:gap-8">
           {/* Configuration Panel */}
-          <Card className="bg-white border-0 rounded-xl shadow-lg p-6 order-2 lg:order-1 h-fit">
+          <Card className="bg-white border-0 rounded-xl shadow-lg p-6 order-2 lg:order-1">
             <h2 className="text-xl font-semibold text-slate-800 mb-6">Configure Document</h2>
             <div className="space-y-6">
               <div className="space-y-2">
@@ -373,18 +390,18 @@ const GenerateDocument = () => {
                   </Button>
                 </div>
 
-                <div className="p-3 md:p-4 bg-slate-100 overflow-x-auto flex justify-center">
+                <div className="p-3 md:p-4 bg-slate-100 overflow-x-auto">
                   <div
                     ref={certificateRef}
                     id="certificate-preview"
-                    className="w-full max-w-[800px] bg-white shadow-2xl rounded-lg"
+                    className="mx-auto w-full max-w-4xl bg-white shadow-2xl rounded-lg"
                   >
                     <div className="relative bg-gradient-to-br from-white to-slate-50">
-                      {/* Original Border lines */}
+                      {/* Border lines */}
                       <div className="absolute inset-4 pointer-events-none border-2 border-[#6699FF] rounded-sm" />
                       <div className="absolute inset-6 pointer-events-none border border-[#a0c0ff] rounded-sm" />
 
-                      {/* Original Corner decorations */}
+                      {/* Corner decorations */}
                       <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-[#6699FF]" />
                       <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-[#6699FF]" />
                       <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-[#6699FF]" />
@@ -424,15 +441,16 @@ const GenerateDocument = () => {
                           </p>
                         </div>
 
-                        {/* Main Body with Profile Picture */}
+                        {/* Main Body with Student Photo (Base64) */}
                         <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                           <div className="flex-shrink-0">
-                            {selectedStudentObj?.profileImageUrl ? (
+                            {photoSrc && !photoError ? (
                               <img
-                                src={selectedStudentObj.profileImageUrl}
-                                alt="Profile"
+                                src={photoSrc}
+                                alt="Student Photo"
                                 className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border-2 border-[#6699FF] shadow-md"
                                 crossOrigin="anonymous"
+                                onError={() => setPhotoError(true)}
                               />
                             ) : (
                               <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-slate-100 border-2 border-[#6699FF] flex items-center justify-center shadow-md">
@@ -493,9 +511,13 @@ const GenerateDocument = () => {
                           <div className="text-center">
                             <div className="bg-white p-1 rounded border border-[#6699FF] inline-block min-w-[65px] min-h-[65px] flex items-center justify-center">
                               {qrLoading ? (
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6699FF]"></div>
+                                <div className="w-[55px] h-[55px] flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6699FF]"></div>
+                                </div>
                               ) : qrError ? (
-                                <div className="text-[10px] text-red-500">QR Error</div>
+                                <div className="w-[55px] h-[55px] flex items-center justify-center text-[10px] text-red-500 text-center">
+                                  QR Error
+                                </div>
                               ) : qrDataUrl ? (
                                 <img
                                   src={qrDataUrl}
@@ -505,7 +527,9 @@ const GenerateDocument = () => {
                                   crossOrigin="anonymous"
                                 />
                               ) : (
-                                <div className="text-[10px] text-slate-400">No QR</div>
+                                <div className="w-[55px] h-[55px] flex items-center justify-center text-[10px] text-slate-400">
+                                  No QR
+                                </div>
                               )}
                             </div>
                             <p className="text-[8px] uppercase text-slate-400 font-bold mt-1">Verification Code</p>

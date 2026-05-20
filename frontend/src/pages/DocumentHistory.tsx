@@ -141,7 +141,6 @@ const DocumentHistory = () => {
     setDownloadingId(doc._id);
     let container: HTMLDivElement | null = null;
     try {
-      // 1. Always fetch the latest student details from the backend
       const token = localStorage.getItem("token");
       let freshStudent: Student | null = null;
       if (token && doc.studentId?._id) {
@@ -151,36 +150,29 @@ const DocumentHistory = () => {
           });
           if (studentRes.ok) {
             freshStudent = await studentRes.json();
-          } else {
-            console.warn("Could not fetch fresh student data, using cached info.");
           }
         } catch (err) {
           console.warn("Error fetching fresh student data:", err);
         }
       }
 
-      // 2. Use fresh student data if available, otherwise fallback to document's cached student
       const studentName = freshStudent?.fullName ?? doc.studentId?.fullName ?? "Student Name";
       const admissionNo = freshStudent?.admissionNo ?? doc.studentId?.admissionNo ?? "N/A";
       const fieldOfStudy = freshStudent?.className ?? doc.studentId?.className ?? "Computer Science";
       const studentPhoto = freshStudent?.photo ?? doc.studentId?.photo;
       const photoSrc = getPhotoSrc(studentPhoto);
 
-      // 3. Generate QR code (based on verification code – no change)
       const qrDataUrl = await QRCode.toDataURL(doc.verificationCode, {
         width: 140,
         margin: 1,
         color: { dark: "#6699FF", light: "#FFFFFF" },
       });
 
-      // 4. Build the certificate HTML using the fresh data
       container = document.createElement("div");
       container.style.position = "absolute";
       container.style.top = "-9999px";
       container.style.left = "-9999px";
-      container.style.backgroundColor = "#ffffff";
       container.style.width = "800px";
-      container.style.padding = "20px";
       document.body.appendChild(container);
 
       const title = getDocumentTitle(doc.documentType);
@@ -190,135 +182,123 @@ const DocumentHistory = () => {
       const certNumber = formatCertificateNumber(doc.verificationCode);
       const awardText = getAwardText(doc.documentType, fieldOfStudy);
 
+      // Height removed and flex-spacing tightened to match preview exactly
       container.innerHTML = `
-        <div class="relative bg-gradient-to-br from-white to-slate-50" style="font-family: sans-serif; max-width: 100%;">
-          <!-- Outer borders -->
-          <div style="position: absolute; inset: 4px; pointer-events: none; border: 2px solid #6699FF; border-radius: 4px;"></div>
-          <div style="position: absolute; inset: 6px; pointer-events: none; border: 1px solid #a0c0ff; border-radius: 4px;"></div>
+        <div style="position: relative; width: 800px; background: white; font-family: sans-serif; box-sizing: border-box; padding: 60px;">
+          <div style="position: absolute; inset: 20px; border: 2px solid #6699FF; border-radius: 4px;"></div>
+          <div style="position: absolute; inset: 26px; border: 1px solid #a0c0ff; border-radius: 4px;"></div>
           
-          <!-- Corner decorations -->
-          <div style="position: absolute; top: 6px; left: 6px; width: 32px; height: 32px; border-top: 2px solid #6699FF; border-left: 2px solid #6699FF;"></div>
-          <div style="position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border-top: 2px solid #6699FF; border-right: 2px solid #6699FF;"></div>
-          <div style="position: absolute; bottom: 6px; left: 6px; width: 32px; height: 32px; border-bottom: 2px solid #6699FF; border-left: 2px solid #6699FF;"></div>
-          <div style="position: absolute; bottom: 6px; right: 6px; width: 32px; height: 32px; border-bottom: 2px solid #6699FF; border-right: 2px solid #6699FF;"></div>
+          <div style="position: absolute; top: 26px; left: 26px; width: 40px; height: 40px; border-top: 3px solid #6699FF; border-left: 3px solid #6699FF;"></div>
+          <div style="position: absolute; top: 26px; right: 26px; width: 40px; height: 40px; border-top: 3px solid #6699FF; border-right: 3px solid #6699FF;"></div>
+          <div style="position: absolute; bottom: 26px; left: 26px; width: 40px; height: 40px; border-bottom: 3px solid #6699FF; border-left: 3px solid #6699FF;"></div>
+          <div style="position: absolute; bottom: 26px; right: 26px; width: 40px; height: 40px; border-bottom: 3px solid #6699FF; border-right: 3px solid #6699FF;"></div>
 
-          <div style="padding: 20px;">
-            <!-- Header with Logo -->
-            <div style="text-align: center; margin-bottom: 24px;">
-              <div style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 8px;">
-                <div style="height: 1px; width: 48px; background: #6699FF;"></div>
-                <div style="width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;">
-                  <img src="/logo-Neo.png" alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
-                </div>
-                <div style="height: 1px; width: 48px; background: #6699FF;"></div>
+          <div style="position: relative; z-index: 10;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 10px;">
+                <div style="height: 1px; width: 50px; background: #6699FF;"></div>
+                <img src="/logo-Neo.png" alt="Logo" style="width: 60px; height: 20px; object-fit: contain;" />
+                <div style="height: 1px; width: 50px; background: #6699FF;"></div>
               </div>
-              <h1 style="font-size: 28px; font-family: serif; font-weight: bold; color: #2c3e50;">Neo Cloud</h1>
-              <p style="font-size: 12px; letter-spacing: 1px; color: #6699FF; font-weight: 500;">ICT SKILLS ANYWHERE</p>
-              <div style="width: 96px; height: 1px; background: #6699FF; margin: 12px auto;"></div>
+              <h1 style="font-size: 43px; font-family: serif; font-weight: bold; color: #2c3e50; margin: 0;">Neo Cloud</h1>
+              <p style="font-size: 16px; letter-spacing: 2px; color: #6699FF; font-weight: 600; margin: 4px 0;">ICT SKILLS ANYWHERE</p>
+              <div style="width: 100px; height: 1px; background: #6699FF; margin: 10px auto;"></div>
             </div>
 
-            <!-- Certificate Title -->
-            <div style="text-align: center; margin-bottom: 16px;">
-              <h2 style="font-size: 20px; font-family: serif; font-weight: bold; color: #2c3e50; text-transform: uppercase; border-bottom: 2px solid #6699FF; display: inline-block; padding-bottom: 4px; padding-left: 16px; padding-right: 16px;">
+            <div style="text-align: center; margin-bottom: 25px;">
+              <h2 style="font-size: 24px; font-family: serif; font-weight: bold; color: #2c3e50; text-transform: uppercase; border-bottom: 2px solid #6699FF; display: inline-block; padding: 0 15px 5px;">
                 ${title}
               </h2>
             </div>
 
-            <!-- Certificate Number -->
             <div style="text-align: right; margin-bottom: 20px;">
-              <span style="font-size: 12px; font-family: monospace; color: #6699FF; background: #f0f4ff; padding: 4px 12px; border-radius: 4px; border: 1px solid #a0c0ff;">
+              <span style="font-size: 16px; font-family: monospace; color: #6699FF; background: #f0f4ff; padding: 4px 8px; border-radius: 4px; border: 1px solid #a0c0ff;">
                 ${certNumber}
               </span>
             </div>
 
-            <!-- Main body with photo -->
-            <div style="display: flex; flex-direction: row; align-items: center; gap: 24px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 30px; margin-bottom: 30px;">
               <div style="flex-shrink: 0;">
                 ${photoSrc ? `
-                  <img src="${photoSrc}" alt="Student Photo" style="width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 2px solid #6699FF; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
+                  <img src="${photoSrc}" style="width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 2px solid #6699FF; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
                 ` : `
-                  <div style="width: 96px; height: 96px; border-radius: 50%; background: #f1f5f9; border: 2px solid #6699FF; display: flex; align-items: center; justify-content: center;">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <div style="width: 110px; height: 110px; border-radius: 50%; background: #f1f5f9; border: 2px solid #6699FF; display: flex; align-items: center; justify-content: center;">
+                    <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                   </div>
                 `}
               </div>
-              <div style="flex: 1; text-align: left;">
-                <p style="font-size: 14px; color: #64748b; font-style: italic; margin-bottom: 4px;">This Certificate is presented to</p>
-                <p style="font-size: 24px; font-family: serif; font-weight: bold; color: #2c3e50; border-bottom: 1px dotted #6699FF; display: inline-block; padding: 0 16px 4px; margin-bottom: 12px;">
+              <div style="flex: 1;">
+                <p style="font-size: 20px; color: #64748b; font-style: italic; margin-bottom: 5px;">This Certificate is presented to</p>
+                <p style="font-size: 30px; font-family: serif; font-weight: bold; color: #2c3e50; border-bottom: 1px dotted #6699FF; display: inline-block; margin-bottom: 10px; padding-bottom: 2px;">
                   ${studentName}
                 </p>
-                <p style="font-size: 14px; color: #475569; line-height: 1.5;">
+                <p style="font-size: 18px; color: #475569; line-height: 1.5; margin: 0;">
                   ${awardText}
                 </p>
               </div>
             </div>
 
-            <!-- Details row -->
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b; border-top: 1px solid #a0c0ff; padding-top: 12px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; padding: 15px 0; border-top: 1px solid #a0c0ff; border-bottom: 1px solid #a0c0ff; margin-bottom: 40px; color: #475569; font-size: 16px;">
               <div><strong>Admission No:</strong> ${admissionNo}</div>
-              <div><strong>Field of Study:</strong> ${fieldOfStudy}</div>
-              <div><strong>Date of Issue:</strong> ${issueDateFormatted}</div>
+              <div><strong>Field:</strong> ${fieldOfStudy}</div>
+              <div><strong>Issued:</strong> ${issueDateFormatted}</div>
             </div>
 
-            <!-- Signatures and Seal -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 24px;">
-              <div style="text-align: center; width: 33%;">
-                <div style="width: 100%; height: 1px; background: #2c3e50; margin-bottom: 4px;"></div>
-                <p style="font-size: 10px; font-family: serif;">Registrar's Signature</p>
-                <p style="font-size: 8px; color: #94a3b8;">(Authority)</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px;">
+              <div style="text-align: center; width: 200px;">
+                <div style="height: 1px; background: #2c3e50; margin-bottom: 5px;"></div>
+                <p style="font-size: 13px; font-weight: bold; margin: 0;">Registrar's Signature</p>
+                <p style="font-size: 11px; color: #94a3b8; margin: 0;">(Authority)</p>
               </div>
+              
               <div style="text-align: center;">
-                <div style="width: 64px; height: 64px; border-radius: 50%; border: 2px solid #6699FF; display: flex; align-items: center; justify-content: center; background: #f0f4ff; margin: 0 auto;">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"/></svg>
+                <div style="width: 70px; height: 70px; border-radius: 50%; border: 1px solid #6699FF; display: flex; align-items: center; justify-content: center; background: #f8faff; margin-bottom: 5px;">
+                   <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"></circle><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"></path></svg>
                 </div>
-                <p style="font-size: 8px; color: #94a3b8; margin-top: 4px;">Official Seal</p>
+                <p style="font-size: 11px; color: #94a3b8;">OFFICIAL SEAL</p>
               </div>
-              <div style="text-align: center; width: 33%;">
-                <div style="width: 100%; height: 1px; background: #2c3e50; margin-bottom: 4px;"></div>
-                <p style="font-size: 10px; font-family: serif;">Director's Signature</p>
-                <p style="font-size: 8px; color: #94a3b8;">(Academic Dean)</p>
+
+              <div style="text-align: center; width: 200px;">
+                <div style="height: 1px; background: #2c3e50; margin-bottom: 5px;"></div>
+                <p style="font-size: 13px; font-weight: bold; margin: 0;">Director's Signature</p>
+                <p style="font-size: 9px; color: #94a3b8; margin: 0;">(Academic Dean)</p>
               </div>
             </div>
 
-            <!-- QR Code -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #a0c0ff; padding-top: 12px; margin-top: 24px;">
-              <div style="font-size: 8px; color: #94a3b8;">Electronically Verified Document</div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #a0c0ff; padding-top: 15px;">
+              <p style="font-size: 9px; color: #94a3b8;">Electronically Verified</p>
               <div style="text-align: center;">
-                <img src="${qrDataUrl}" style="width: 55px; height: 55px; border: 1px solid #6699FF; border-radius: 4px; padding: 2px; background: white;" />
-                <p style="font-size: 7px; text-transform: uppercase; color: #6699FF; font-weight: bold; margin-top: 4px;">Verification Code</p>
-                <p style="font-size: 8px; font-family: monospace; color: #6699FF; word-break: break-all; max-width: 120px;">${doc.verificationCode}</p>
+                <img src="${qrDataUrl}" style="width: 60px; height: 60px; border: 1px solid #6699FF; padding: 2px; background: white;" />
+                <p style="font-size: 10px; font-weight: bold; color: #6699FF; margin-top: 3px;">${doc.verificationCode}</p>
               </div>
-              <div style="font-size: 8px; color: #94a3b8;">Issue ID: ${doc._id.slice(-8)}</div>
+              <p style="font-size: 11px; color: #94a3b8;">ID: ${doc._id.slice(-8).toUpperCase()}</p>
             </div>
           </div>
         </div>
       `;
 
-      // 5. Convert to PDF
       const canvas = await html2canvas(container, {
-        scale: 2,
+        scale: 3,
+        useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        useCORS: true,
       });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pdfWidth = 210;
-      const pdfHeight = 297;
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const scale = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const finalWidth = imgWidth * scale;
-      const finalHeight = imgHeight * scale;
-      const x = (pdfWidth - finalWidth) / 2;
-      const y = (pdfHeight - finalHeight) / 2;
-      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
-      pdf.save(`certificate_${doc.documentType}_${doc.verificationCode}.pdf`);
 
-      toast({ title: "Success", description: "Certificate downloaded with latest student data!" });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // Keep the 210x297 mapping to ensure the image fills the PDF page
+      pdf.addImage(imgData, "PNG", 0, 0, 210, 297, undefined, 'FAST');
+      pdf.save(`certificate_${doc.verificationCode}.pdf`);
+
+      toast({ title: "Success", description: "Certificate downloaded!" });
     } catch (error) {
       console.error("PDF export error:", error);
-      toast({ title: "Error", description: "Failed to download certificate", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to download", variant: "destructive" });
     } finally {
       if (container && container.parentNode) container.parentNode.removeChild(container);
       setDownloadingId(null);
