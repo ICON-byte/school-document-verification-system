@@ -69,6 +69,8 @@ const GenerateDocument = () => {
   const { toast } = useToast();
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+  const selectedStudentObj = students.find((s) => s._id === selectedStudent);
+
   useEffect(() => {
     document.documentElement.style.overscrollBehavior = "none";
     document.body.style.overscrollBehavior = "none";
@@ -85,10 +87,7 @@ const GenerateDocument = () => {
   const fetchStudents = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) {
-        toast({ title: "Not authenticated", variant: "destructive" });
-        return;
-      }
+      if (!token) return;
       const res = await fetch(`${API_BASE}/students`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -113,36 +112,23 @@ const GenerateDocument = () => {
     if (student) setSearchQuery(student.fullName);
   };
 
-  // Generate QR code when document is generated
   useEffect(() => {
     const generateQR = async () => {
       if (!generated?.verificationCode) {
-        console.warn("No verification code found in generated document");
         setQrDataUrl(null);
-        setQrError(true);
-        setQrLoading(false);
         return;
       }
-
       setQrLoading(true);
       setQrError(false);
-      setQrDataUrl(null);
       try {
-        console.log("Generating QR for code:", generated.verificationCode);
         const url = await QRCode.toDataURL(generated.verificationCode, {
           width: 140,
           margin: 1,
-          color: {
-            dark: "#6699FF",
-            light: "#FFFFFF",
-          },
+          color: { dark: "#6699FF", light: "#FFFFFF" },
         });
         setQrDataUrl(url);
-        console.log("QR generated successfully, URL length:", url.length);
       } catch (err) {
-        console.error("QR generation failed:", err);
         setQrError(true);
-        setQrDataUrl(null);
       } finally {
         setQrLoading(false);
       }
@@ -157,7 +143,6 @@ const GenerateDocument = () => {
     }
     setLoading(true);
     setQrDataUrl(null);
-    setQrError(false);
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
@@ -175,11 +160,9 @@ const GenerateDocument = () => {
       });
       if (!res.ok) throw new Error("Failed to generate document");
       const data = await res.json();
-      console.log("Generated document:", data.document);
       setGenerated(data.document);
       toast({ title: "Success", description: "Document generated successfully!" });
     } catch (error: any) {
-      console.error("Generation error:", error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -192,75 +175,53 @@ const GenerateDocument = () => {
 
     setExporting(true);
     try {
-      // Wait for the QR image to finish loading (if it exists and has a src)
+      // Step 1: Wait for QR image
       const qrImg = element.querySelector('img[alt="QR Code"]') as HTMLImageElement;
-      if (qrImg && qrImg.src && !qrImg.complete) {
-        await new Promise<void>((resolve, reject) => {
-          qrImg.onload = () => resolve();
-          qrImg.onerror = () => reject(new Error("QR image failed to load"));
-          if (qrImg.complete) resolve();
+      if (qrImg && !qrImg.complete) {
+        await new Promise((resolve) => {
+          qrImg.onload = resolve;
+          qrImg.onerror = resolve;
         });
       }
 
-      // Prepare certificate element for capture
-      const originalOverflow = element.style.overflow;
-      const originalMaxWidth = element.style.maxWidth;
-      const originalHeight = element.style.height;
-
-      element.style.overflow = "visible";
-      element.style.maxWidth = "none";
-      element.style.height = "auto";
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      // Capture with html2canvas
+      // Step 2: Use html2canvas with specific settings to lock the view
       const canvas = await html2canvas(element, {
-        scale: 3,
-        backgroundColor: "#ffffff",
-        logging: false,
+        scale: 3, // High quality
         useCORS: true,
         allowTaint: false,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
+        backgroundColor: "#ffffff",
+        logging: false,
+        // This is key: ensure the capture happens at the current element's width
+        width: element.offsetWidth,
+        height: element.offsetHeight,
         onclone: (clonedDoc) => {
           const clonedEl = clonedDoc.getElementById("certificate-preview");
           if (clonedEl) {
             clonedEl.style.overflow = "visible";
             clonedEl.style.height = "auto";
-          }
-          const images = clonedDoc.getElementsByTagName("img");
-          for (let i = 0; i < images.length; i++) {
-            images[i].crossOrigin = "anonymous";
+            clonedEl.style.transform = "none"; // Remove any preview scaling
           }
         },
       });
 
-      // Restore original styles
-      element.style.overflow = originalOverflow;
-      element.style.maxWidth = originalMaxWidth;
-      element.style.height = originalHeight;
-
-      // Generate PDF
-      const imgData = canvas.toDataURL("image/png");
+      const imgData = canvas.toDataURL("image/png", 1.0);
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
 
-      const pdfWidth = 210;
-      const pdfHeight = 297;
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // Calculate height to maintain aspect ratio
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-      const scale = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const finalWidth = imgWidth * scale;
-      const finalHeight = imgHeight * scale;
-      const x = (pdfWidth - finalWidth) / 2;
-      const y = (pdfHeight - finalHeight) / 2;
-
-      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
+      // Add image centered vertically
+      pdf.addImage(imgData, "PNG", 0, (pdfHeight - imgHeight) / 2, pdfWidth, imgHeight);
       pdf.save(`certificate_${generated?.documentType}_${new Date().toISOString().split("T")[0]}.pdf`);
+      
       toast({ title: "Success", description: "PDF downloaded successfully!" });
     } catch (error) {
       console.error("PDF export error:", error);
@@ -270,7 +231,6 @@ const GenerateDocument = () => {
     }
   };
 
-  const selectedStudentObj = students.find((s) => s._id === selectedStudent);
   const fieldOfStudy = selectedStudentObj?.className || generated?.content?.className || "Computer Science";
 
   const displayIssueDate = generated?.issueDate
@@ -316,7 +276,7 @@ const GenerateDocument = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 md:gap-8">
           {/* Configuration Panel */}
-          <Card className="bg-white border-0 rounded-xl shadow-lg p-6 order-2 lg:order-1">
+          <Card className="bg-white border-0 rounded-xl shadow-lg p-6 order-2 lg:order-1 h-fit">
             <h2 className="text-xl font-semibold text-slate-800 mb-6">Configure Document</h2>
             <div className="space-y-6">
               <div className="space-y-2">
@@ -413,18 +373,18 @@ const GenerateDocument = () => {
                   </Button>
                 </div>
 
-                <div className="p-3 md:p-4 bg-slate-100 overflow-x-auto">
+                <div className="p-3 md:p-4 bg-slate-100 overflow-x-auto flex justify-center">
                   <div
                     ref={certificateRef}
                     id="certificate-preview"
-                    className="mx-auto w-full max-w-4xl bg-white shadow-2xl rounded-lg"
+                    className="w-full max-w-[800px] bg-white shadow-2xl rounded-lg"
                   >
                     <div className="relative bg-gradient-to-br from-white to-slate-50">
-                      {/* Border lines */}
+                      {/* Original Border lines */}
                       <div className="absolute inset-4 pointer-events-none border-2 border-[#6699FF] rounded-sm" />
                       <div className="absolute inset-6 pointer-events-none border border-[#a0c0ff] rounded-sm" />
 
-                      {/* Corner decorations */}
+                      {/* Original Corner decorations */}
                       <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-[#6699FF]" />
                       <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-[#6699FF]" />
                       <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-[#6699FF]" />
@@ -525,7 +485,7 @@ const GenerateDocument = () => {
                           </div>
                         </div>
 
-                        {/* QR Code Section with Loading/Error States */}
+                        {/* QR Code Section */}
                         <div className="mt-6 flex justify-between items-end border-t border-[#a0c0ff] pt-3">
                           <div className="text-left">
                             <p className="text-[10px] text-slate-400">Electronically Verified Document</p>
@@ -533,13 +493,9 @@ const GenerateDocument = () => {
                           <div className="text-center">
                             <div className="bg-white p-1 rounded border border-[#6699FF] inline-block min-w-[65px] min-h-[65px] flex items-center justify-center">
                               {qrLoading ? (
-                                <div className="w-[55px] h-[55px] flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6699FF]"></div>
-                                </div>
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6699FF]"></div>
                               ) : qrError ? (
-                                <div className="w-[55px] h-[55px] flex items-center justify-center text-[10px] text-red-500 text-center">
-                                  QR Error
-                                </div>
+                                <div className="text-[10px] text-red-500">QR Error</div>
                               ) : qrDataUrl ? (
                                 <img
                                   src={qrDataUrl}
@@ -549,9 +505,7 @@ const GenerateDocument = () => {
                                   crossOrigin="anonymous"
                                 />
                               ) : (
-                                <div className="w-[55px] h-[55px] flex items-center justify-center text-[10px] text-slate-400">
-                                  No QR
-                                </div>
+                                <div className="text-[10px] text-slate-400">No QR</div>
                               )}
                             </div>
                             <p className="text-[8px] uppercase text-slate-400 font-bold mt-1">Verification Code</p>

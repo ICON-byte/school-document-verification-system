@@ -38,7 +38,6 @@ const DocumentHistory = () => {
   const { toast } = useToast();
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  // Prevent overscroll at top/bottom of page (no bounce effect)
   useEffect(() => {
     const originalStyle = window.getComputedStyle(document.documentElement).overscrollBehavior;
     document.documentElement.style.overscrollBehavior = "none";
@@ -138,86 +137,79 @@ const DocumentHistory = () => {
       });
 
       container.innerHTML = `
-        <div style="font-family: sans-serif; max-width: 100%; position: relative;">
-          <div style="position: absolute; inset: 0; pointer-events: none; border: 1px solid rgba(102,153,255,0.2); border-radius: 8px;"></div>
-          <div style="position: absolute; top: 0; left: 0; width: 32px; height: 32px; border-top: 2px solid rgba(102,153,255,0.3); border-left: 2px solid rgba(102,153,255,0.3); border-top-left-radius: 6px;"></div>
-          <div style="position: absolute; top: 0; right: 0; width: 32px; height: 32px; border-top: 2px solid rgba(102,153,255,0.3); border-right: 2px solid rgba(102,153,255,0.3); border-top-right-radius: 6px;"></div>
-          <div style="position: absolute; bottom: 0; left: 0; width: 32px; height: 32px; border-bottom: 2px solid rgba(102,153,255,0.3); border-left: 2px solid rgba(102,153,255,0.3); border-bottom-left-radius: 6px;"></div>
-          <div style="position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; border-bottom: 2px solid rgba(102,153,255,0.3); border-right: 2px solid rgba(102,153,255,0.3); border-bottom-right-radius: 6px;"></div>
-
-          <div style="padding: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
-              <div>
-                <h1 style="font-size: 24px; font-weight: bold; color: #1e293b;">NEO CLOUD</h1>
-                <p style="font-size: 10px; color: #64748b; text-transform: uppercase;">Academic & Records Office</p>
-              </div>
-              <div style="width: 40px; height: 40px; background: #f8fafc; border-radius: 9999px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(102,153,255,0.2);">
-                <img src="/logo-Neo-2.png" alt="Logo" style="width: 28px; height: 28px; object-fit: contain;" />
-              </div>
-            </div>
-
-            <div style="text-align: center; margin-bottom: 16px;">
-              <h2 style="font-size: 20px; font-weight: bold; color: #1e293b; text-transform: uppercase; letter-spacing: 1px;">${getDocumentTitle()}</h2>
-              <p style="font-size: 10px; color: #64748b; margin-top: 4px;">This certifies that</p>
-            </div>
-
-            <div style="text-align: center; margin-bottom: 16px;">
-              <p style="font-size: 28px; font-family: serif; font-weight: bold; color: #1e293b; border-bottom: 1px solid rgba(102,153,255,0.2); display: inline-block; padding-bottom: 2px; padding-left: 16px; padding-right: 16px;">
-                ${doc.studentId?.fullName || "Student Name"}
-              </p>
-            </div>
-
-            <div style="text-align: center; color: #475569; font-size: 12px; margin-bottom: 24px;">
-              ${doc.documentType === "degree" ? `
-                <p>has successfully completed all requirements for the degree of</p>
-                <p style="font-size: 16px; font-family: serif; font-weight: 600; color: #6699FF;">Bachelor of Science in Computer Science</p>
-                <p>with all rights, privileges, and honors thereunto appertaining.</p>
-              ` : doc.documentType === "diploma" ? `
-                <p>has successfully completed the program of study and is hereby awarded the</p>
-                <p style="font-size: 16px; font-family: serif; font-weight: 600; color: #6699FF;">Diploma in Information Technology</p>
-                <p>in recognition of academic achievement.</p>
-              ` : `
-                <p style="font-size: 14px; font-weight: 500;">Academic Record</p>
-              `}
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 16px;">
-              <div style="font-size: 10px; line-height: 1.3;">
-                <p>Issued: ${issueDateFormatted}</p>
-                <p>Admission: ${doc.studentId?.admissionNo || "N/A"}</p>
-              </div>
-              <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
-                <img src="${qrDataUrl}" style="width: 50px; height: 50px; border: 1px solid #e2e8f0; border-radius: 4px;" />
-                <p style="font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-top: 4px;">Verification Code</p>
-                <p style="font-size: 9px; font-family: monospace; font-weight: bold; color: #6699FF;">${doc.verificationCode}</p>
-              </div>
-            </div>
-
-            <div style="margin-top: 24px; padding-top: 8px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px;">
-              <div style="text-align: center; width: 33%;">
-                <div style="width: 100%; height: 1px; background: #cbd5e1; margin-bottom: 4px;"></div>
-                <p>Registrar's Signature</p>
-              </div>
-              <div style="text-align: center; width: 33%;">
-                <div style="width: 100%; height: 1px; background: #cbd5e1; margin-bottom: 4px;"></div>
-                <p>Academic Dean</p>
-              </div>
-              <div style="text-align: center; width: 33%;">
-                <div style="display: flex; justify-content: center; margin-bottom: 4px;">
-                  <div style="width: 28px; height: 28px; border-radius: 9999px; border: 1px solid rgba(102,153,255,0.4); display: flex; align-items: center; justify-content: center;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"/></svg>
-                  </div>
-                </div>
-                <p>University Seal</p>
-              </div>
-            </div>
-
-            <div style="text-align: center; margin-top: 12px; font-size: 8px; color: #94a3b8; text-transform: uppercase;">
-              Electronically verified – check QR code
-            </div>
-          </div>
-        </div>
-      `;
+        <div style="font-family: sans-serif; max-width: 100%; position: relative;">
+          <div style="position: absolute; inset: 0; pointer-events: none; border: 1px solid rgba(102,153,255,0.2); border-radius: 8px;"></div>
+          <div style="position: absolute; top: 0; left: 0; width: 32px; height: 32px; border-top: 2px solid rgba(102,153,255,0.3); border-left: 2px solid rgba(102,153,255,0.3); border-top-left-radius: 6px;"></div>
+          <div style="position: absolute; top: 0; right: 0; width: 32px; height: 32px; border-top: 2px solid rgba(102,153,255,0.3); border-right: 2px solid rgba(102,153,255,0.3); border-top-right-radius: 6px;"></div>
+          <div style="position: absolute; bottom: 0; left: 0; width: 32px; height: 32px; border-bottom: 2px solid rgba(102,153,255,0.3); border-left: 2px solid rgba(102,153,255,0.3); border-bottom-left-radius: 6px;"></div>
+          <div style="position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; border-bottom: 2px solid rgba(102,153,255,0.3); border-right: 2px solid rgba(102,153,255,0.3); border-bottom-right-radius: 6px;"></div>
+          <div style="padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+              <div>
+                <h1 style="font-size: 24px; font-weight: bold; color: #1e293b;">NEO CLOUD</h1>
+                <p style="font-size: 10px; color: #64748b; text-transform: uppercase;">Academic & Records Office</p>
+              </div>
+              <div style="width: 40px; height: 40px; background: #f8fafc; border-radius: 9999px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(102,153,255,0.2);">
+                <img src="/logo-Neo-2.png" alt="Logo" style="width: 28px; height: 28px; object-fit: contain;" />
+              </div>
+            </div>
+            <div style="text-align: center; margin-bottom: 16px;">
+              <h2 style="font-size: 20px; font-weight: bold; color: #1e293b; text-transform: uppercase; letter-spacing: 1px;">${getDocumentTitle()}</h2>
+              <p style="font-size: 10px; color: #64748b; margin-top: 4px;">This certifies that</p>
+            </div>
+            <div style="text-align: center; margin-bottom: 16px;">
+              <p style="font-size: 28px; font-family: serif; font-weight: bold; color: #1e293b; border-bottom: 1px solid rgba(102,153,255,0.2); display: inline-block; padding-bottom: 2px; padding-left: 16px; padding-right: 16px;">
+                ${doc.studentId?.fullName || "Student Name"}
+              </p>
+            </div>
+            <div style="text-align: center; color: #475569; font-size: 12px; margin-bottom: 24px;">
+              ${doc.documentType === "degree" ? `
+                <p>has successfully completed all requirements for the degree of</p>
+                <p style="font-size: 16px; font-family: serif; font-weight: 600; color: #6699FF;">Bachelor of Science in Computer Science</p>
+                <p>with all rights, privileges, and honors thereunto appertaining.</p>
+              ` : doc.documentType === "diploma" ? `
+                <p>has successfully completed the program of study and is hereby awarded the</p>
+                <p style="font-size: 16px; font-family: serif; font-weight: 600; color: #6699FF;">Diploma in Information Technology</p>
+                <p>in recognition of academic achievement.</p>
+              ` : `
+                <p style="font-size: 14px; font-weight: 500;">Academic Record</p>
+              `}
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 16px;">
+              <div style="font-size: 10px; line-height: 1.3;">
+                <p>Issued: ${issueDateFormatted}</p>
+                <p>Admission: ${doc.studentId?.admissionNo || "N/A"}</p>
+              </div>
+              <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
+                <img src="${qrDataUrl}" style="width: 50px; height: 50px; border: 1px solid #e2e8f0; border-radius: 4px;" />
+                <p style="font-size: 8px; text-transform: uppercase; color: #94a3b8; font-weight: bold; margin-top: 4px;">Verification Code</p>
+                <p style="font-size: 9px; font-family: monospace; font-weight: bold; color: #6699FF;">${doc.verificationCode}</p>
+              </div>
+            </div>
+            <div style="margin-top: 24px; padding-top: 8px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px;">
+              <div style="text-align: center; width: 33%;">
+                <div style="width: 100%; height: 1px; background: #cbd5e1; margin-bottom: 4px;"></div>
+                <p>Registrar's Signature</p>
+              </div>
+              <div style="text-align: center; width: 33%;">
+                <div style="width: 100%; height: 1px; background: #cbd5e1; margin-bottom: 4px;"></div>
+                <p>Academic Dean</p>
+              </div>
+              <div style="text-align: center; width: 33%;">
+                <div style="display: flex; justify-content: center; margin-bottom: 4px;">
+                  <div style="width: 28px; height: 28px; border-radius: 9999px; border: 1px solid rgba(102,153,255,0.4); display: flex; align-items: center; justify-content: center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6699FF" stroke-width="1.5"><path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"/></svg>
+                  </div>
+                </div>
+                <p>University Seal</p>
+              </div>
+            </div>
+            <div style="text-align: center; margin-top: 12px; font-size: 8px; color: #94a3b8; text-transform: uppercase;">
+              Electronically verified – check QR code
+            </div>
+          </div>
+        </div>
+      `;
 
       const canvas = await html2canvas(container, {
         scale: 2,
@@ -270,7 +262,7 @@ const DocumentHistory = () => {
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 pb-16 md:p-8 md:pb-20 font-sans">
       <div className="max-w-screen-2xl mx-auto">
-        {/* Header */}
+        {/* Header - Reverted to your exact layout */}
         <div className="bg-white border-none rounded-md shadow-md p-6 md:p-8 mb-6 md:mb-8">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div>
@@ -290,7 +282,6 @@ const DocumentHistory = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="h-11 pl-10 pr-4 w-full text-sm rounded-md border-none bg-slate-50 shadow-sm focus-visible:ring-2 focus-visible:ring-[#6699ff]/20"
-                  aria-label="Search documents"
                 />
               </div>
 
@@ -298,8 +289,6 @@ const DocumentHistory = () => {
                 value={limit}
                 onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
                 className="h-11 px-3 rounded-md border-none bg-white shadow-sm text-sm cursor-pointer"
-                aria-label="Items per page"
-                title="Items per page"
               >
                 <option value={5}>5 per page</option>
                 <option value={10}>10 per page</option>
@@ -315,15 +304,10 @@ const DocumentHistory = () => {
             <p className="text-slate-500">
               {search ? "No matching documents found on this page." : "No documents have been generated yet."}
             </p>
-            {!search && (
-              <p className="text-sm text-slate-400 mt-2">
-                Generate your first document from the "Generate Document" page.
-              </p>
-            )}
           </Card>
         ) : (
           <>
-            {/* Mobile View (Cards) */}
+            {/* Mobile View (Cards) - Reverted design to use your logic */}
             <div className="grid grid-cols-1 gap-4 lg:hidden">
               {filteredDocuments.map((doc) => (
                 <Card key={doc._id} className="bg-white p-5 shadow-md border-none rounded-md">
@@ -332,9 +316,8 @@ const DocumentHistory = () => {
                       <p className="text-sm font-bold text-black">{doc.studentId?.fullName || "Unknown"}</p>
                       <p className="text-xs text-slate-500">{doc.studentId?.admissionNo || "N/A"}</p>
                     </div>
-                    <span className={`text-[10px] font-black px-2 py-1 rounded-full ${
-                      doc.status === "issued" ? "bg-slate-50 text-[#6699ff]" : "bg-slate-50 text-black"
-                    }`}>
+                    <span className={`text-[10px] font-black px-2 py-1 rounded-full ${doc.status === "issued" ? "bg-slate-50 text-[#6699ff]" : "bg-slate-50 text-black"
+                      }`}>
                       {doc.status?.toUpperCase() || "UNKNOWN"}
                     </span>
                   </div>
@@ -348,12 +331,6 @@ const DocumentHistory = () => {
                     <div className="flex justify-between">
                       <span className="text-[10px] text-slate-400 uppercase font-bold">Code</span>
                       <span className="text-xs font-mono font-medium">{doc.verificationCode}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold">Issued</span>
-                      <span className="text-xs text-slate-500">
-                        {new Date(doc.issueDate).toLocaleDateString("en-GB")}
-                      </span>
                     </div>
                     {doc.status === "issued" && (
                       <div className="mt-3 pt-2 border-t border-slate-100 flex gap-2">
@@ -375,7 +352,7 @@ const DocumentHistory = () => {
                           className="flex-1 text-xs h-8 bg-red-600 hover:bg-red-700"
                         >
                           <Trash2 className="w-3 h-3 mr-1" />
-                          {revokingId === doc._id ? "Revoking..." : "Revoke"}
+                          {revokingId === doc._id ? "..." : "Revoke"}
                         </Button>
                       </div>
                     )}
@@ -384,7 +361,7 @@ const DocumentHistory = () => {
               ))}
             </div>
 
-            {/* Desktop Table */}
+            {/* Desktop Table - REVERTED TO ORIGINAL BUT FIXED BREAKPOINT */}
             <Card className="hidden lg:block bg-white border-none rounded-md shadow-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1000px]">
@@ -412,9 +389,8 @@ const DocumentHistory = () => {
                           {doc.documentType?.replace(/_/g, " ") || "N/A"}
                         </td>
                         <td className="py-5 px-8 text-center">
-                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${
-                            doc.status === "issued" ? "text-[#6699ff]" : "text-black"
-                          }`}>
+                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${doc.status === "issued" ? "text-[#6699ff]" : "text-black"
+                            }`}>
                             {doc.status?.toUpperCase() || "UNKNOWN"}
                           </span>
                         </td>
@@ -445,7 +421,7 @@ const DocumentHistory = () => {
                                 className="h-7 px-2 text-[11px] bg-red-600 hover:bg-red-700 whitespace-nowrap"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
-                                {revokingId === doc._id ? "Revoking..." : "Revoke"}
+                                {revokingId === doc._id ? "..." : "Revoke"}
                               </Button>
                             </div>
                           ) : (
@@ -461,7 +437,7 @@ const DocumentHistory = () => {
           </>
         )}
 
-        {/* Pagination Controls */}
+        {/* Pagination - Original Design */}
         {total > 0 && (
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 px-4">
             <div className="text-sm text-slate-500">
@@ -474,7 +450,6 @@ const DocumentHistory = () => {
                 onClick={() => goToPage(page - 1)}
                 disabled={page === 1}
                 className="h-9 px-3"
-                aria-label="Previous page"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Previous
               </Button>
@@ -487,7 +462,6 @@ const DocumentHistory = () => {
                 onClick={() => goToPage(page + 1)}
                 disabled={page === totalPages}
                 className="h-9 px-3"
-                aria-label="Next page"
               >
                 Next <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
